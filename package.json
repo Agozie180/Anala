@@ -1,0 +1,44 @@
+{
+  "name": "anala",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "description": "Anala — AI-native trading intelligence for PreStocks tokenized pre-IPO stocks on Solana",
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "build": "next build",
+    "start": "next start --port 3100",
+    "test": "vitest run --config vitest.config.mjs",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "research": "tsx src/cli/research.ts",
+    "run": "tsx src/cli/run.ts",
+    "discover": "tsx src/cli/discover.ts",
+    "monitor": "tsx src/cli/monitor.ts",
+    "paper-loop": "tsx src/cli/paper-loop.ts",
+    "report": "tsx src/cli/report.ts",
+    "trades": "tsx src/cli/trades.ts"
+  },
+  "dependencies": {
+    "@solana/web3.js": "^1.99.0",
+    "bs58": "^6.0.0",
+    "next": "^15.5.2",
+    "openai": "^5.16.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  },
+  "optionalDependencies": {
+    "@esbuild/win32-x64": "^0.28.2"
+  }
+}
