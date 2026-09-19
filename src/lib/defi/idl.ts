@@ -1,0 +1,145 @@
+export const IDL = {
+  "version": "0.1.0",
+  "name": "anala_lending",
+  "instructions": [
+    {
+      "name": "initializePool",
+      "accounts": [
+        { "name": "lendingPool", "isMut": true, "isSigner": false },
+        { "name": "collateralMint", "isMut": false, "isSigner": false },
+        { "name": "borrowMint", "isMut": false, "isSigner": false },
+        { "name": "collateralVault", "isMut": true, "isSigner": false },
+        { "name": "borrowVault", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false },
+        { "name": "rent", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "ltvBasisPoints", "type": "u16" },
+        { "name": "interestRateBps", "type": "u16" }
+      ]
+    },
+    {
+      "name": "depositCollateral",
+      "accounts": [
+        { "name": "lendingPool", "isMut": true, "isSigner": false },
+        { "name": "userPosition", "isMut": true, "isSigner": false },
+        { "name": "collateralVault", "isMut": true, "isSigner": false },
+        { "name": "userTokenAccount", "isMut": true, "isSigner": false },
+        { "name": "user", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64" }
+      ]
+    },
+    {
+      "name": "borrow",
+      "accounts": [
+        { "name": "lendingPool", "isMut": true, "isSigner": false },
+        { "name": "userPosition", "isMut": true, "isSigner": false },
+        { "name": "borrowVault", "isMut": true, "isSigner": false },
+        { "name": "userBorrowAccount", "isMut": true, "isSigner": false },
+        { "name": "user", "isMut": false, "isSigner": true },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64" }
+      ]
+    },
+    {
+      "name": "repay",
+      "accounts": [
+        { "name": "lendingPool", "isMut": true, "isSigner": false },
+        { "name": "userPosition", "isMut": true, "isSigner": false },
+        { "name": "borrowVault", "isMut": true, "isSigner": false },
+        { "name": "userBorrowAccount", "isMut": true, "isSigner": false },
+        { "name": "user", "isMut": true, "isSigner": true },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64" }
+      ]
+    },
+    {
+      "name": "withdrawCollateral",
+      "accounts": [
+        { "name": "lendingPool", "isMut": true, "isSigner": false },
+        { "name": "userPosition", "isMut": true, "isSigner": false },
+        { "name": "collateralVault", "isMut": true, "isSigner": false },
+        { "name": "userTokenAccount", "isMut": true, "isSigner": false },
+        { "name": "user", "isMut": false, "isSigner": true },
+        { "name": "tokenProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "amount", "type": "u64" }
+      ]
+    },
+    {
+      "name": "updateLtv",
+      "accounts": [
+        { "name": "lendingPool", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": false, "isSigner": true }
+      ],
+      "args": [
+        { "name": "newLtvBps", "type": "u16" }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "LendingPool",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "authority", "type": "publicKey" },
+          { "name": "collateralMint", "type": "publicKey" },
+          { "name": "collateralVault", "type": "publicKey" },
+          { "name": "borrowMint", "type": "publicKey" },
+          { "name": "borrowVault", "type": "publicKey" },
+          { "name": "totalCollateral", "type": "u64" },
+          { "name": "totalBorrowed", "type": "u64" },
+          { "name": "ltvRatio", "type": "u16" },
+          { "name": "interestRate", "type": "u16" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    },
+    {
+      "name": "UserPosition",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "owner", "type": "publicKey" },
+          { "name": "pool", "type": "publicKey" },
+          { "name": "collateralAmount", "type": "u64" },
+          { "name": "borrowedAmount", "type": "u64" },
+          { "name": "borrowedAt", "type": "i64" },
+          { "name": "lastInterestUpdate", "type": "i64" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "InvalidAmount", "msg": "Amount must be greater than zero" },
+    { "code": 6001, "name": "NoCollateral", "msg": "No collateral deposited" },
+    { "code": 6002, "name": "ExceedsLTV", "msg": "Borrow amount exceeds LTV limit" },
+    { "code": 6003, "name": "NothingToRepay", "msg": "Nothing to repay" },
+    { "code": 6004, "name": "OutstandingDebt", "msg": "Outstanding debt must be repaid before withdrawal" },
+    { "code": 6005, "name": "InsufficientCollateral", "msg": "Insufficient collateral" },
+    { "code": 6006, "name": "InvalidLTV", "msg": "LTV ratio must be between 30% and 75%" },
+    { "code": 6007, "name": "Overflow", "msg": "Arithmetic overflow" },
+    { "code": 6008, "name": "Underflow", "msg": "Arithmetic underflow" }
+  ]
+};
+
+export type AnalaLending = {
+  version: "0.1.0";
+  name: "anala_lending";
+  instructions: Array<any>;
+  accounts: Array<any>;
+  errors: Array<any>;
+};

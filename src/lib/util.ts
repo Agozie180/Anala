@@ -1,11 +1,9 @@
-import { createHash, randomUUID } from "node:crypto";
-
 export function nowIso(): string {
   return new Date().toISOString();
 }
 
 export function uid(prefix = "id"): string {
-  return `${prefix}_${randomUUID().slice(0, 8)}`;
+  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export function num(v: unknown, fallback = 0): number {
@@ -40,7 +38,14 @@ export function sleep(ms: number): Promise<void> {
 }
 
 export function hash(s: string): string {
-  return createHash("sha256").update(s).digest("hex").slice(0, 16);
+  // Simple hash for browser compatibility
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) {
+    const char = s.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36).padStart(16, '0').slice(0, 16);
 }
 
 export function minutesSince(isoOrMs: string | number): number {
