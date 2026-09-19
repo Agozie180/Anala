@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 type Run = Record<string, any>;
 
 export default function Page() {
-  const [symbol, setSymbol] = useState("NVDAUSDT");
+  const [symbol, setSymbol] = useState("ANTHROPIC");
   const [run, setRun] = useState<Run | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -74,8 +74,8 @@ export default function Page() {
     <main className="app">
       <header className="top">
         <div className="brand">
-          <h1>AETHERAI</h1>
-          <p>Research → Understand → Analyze → Reason → Debate → Risk-check → Recommend. PreStocks AI intelligence.</p>
+          <h1>ANALA</h1>
+          <p>AI-native trading intelligence for PreStocks tokenized pre-IPO stocks on Solana</p>
         </div>
         <div>
           <span className={`badge ${mode === "LIVE" ? "live" : "paper"}`}>{mode} MODE</span>

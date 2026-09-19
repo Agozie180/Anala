@@ -16,11 +16,6 @@ export async function register(): Promise<void> {
   // authoritative for the whole server process.
   const { loadDotEnv } = await import("./lib/env");
   loadDotEnv();
-  const { startMonitorScheduler } = await import("./lib/monitor/scheduler");
-  const res = startMonitorScheduler();
-  if (res.started) {
-    console.error(`[aether] monitor scheduler active (every ${res.intervalMs}ms).`);
-  } else {
-    console.error(`[aether] monitor scheduler not started: ${res.reason}`);
-  }
+  // Monitor scheduler disabled for research mode
+  console.error(`[anala] research mode - no monitor scheduler needed`);
 }

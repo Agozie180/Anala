@@ -4,6 +4,7 @@
  */
 
 import { runAnala } from "../lib/orchestrator/anala";
+import { isFullResult, isEarlyExit } from "../lib/orchestrator/types";
 
 async function main() {
   const symbol = process.argv[2]?.toUpperCase();
@@ -23,14 +24,16 @@ async function main() {
     console.log(`Run ID: ${result.id}`);
     console.log(`Symbol: ${symbol}`);
     console.log(`Mode: ${result.mode}`);
-    console.log(`Duration: ${result.durationMs}ms`);
-    console.log();
 
-    if (!result.resolved?.instrument) {
+    if (isEarlyExit(result)) {
       console.log(`Decision: ${result.decision}`);
       console.log(`Reason: ${result.reason}`);
       return;
     }
+
+    // TypeScript now knows this is AnalaFullResult
+    console.log(`Duration: ${result.durationMs}ms`);
+    console.log();
 
     const inst = result.resolved.instrument;
     console.log("=== TOKEN INFO ===");
@@ -77,11 +80,10 @@ async function main() {
     console.log("=== RISK ===");
     console.log(`Allowed: ${result.risk.allowed ? "✓" : "✗"}`);
     console.log(`Reason: ${result.risk.reason}`);
-    if (result.risk.allowed) {
-      console.log(`Size: ${result.risk.qty} tokens @ $${result.risk.entry.toFixed(2)}`);
-      console.log(`Stop: $${result.risk.stop.toFixed(2)}`);
-      console.log(`Target: $${result.risk.takeProfit.toFixed(2)}`);
-      console.log(`EV: ${result.risk.estimatedEv.toFixed(2)}`);
+    if (result.risk.allowed && result.risk.qty) {
+      console.log(`Size: ${result.risk.qty} tokens`);
+      console.log(`Stop: $${result.risk.stop?.toFixed(2) ?? "N/A"}`);
+      console.log(`Target: $${result.risk.takeProfit?.toFixed(2) ?? "N/A"}`);
     }
     console.log();
 

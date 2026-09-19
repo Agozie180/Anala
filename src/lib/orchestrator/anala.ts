@@ -30,8 +30,9 @@ import {
 } from "../memory/store";
 import { similarSetups } from "../memory/similar";
 import { foldGates, gate } from "./gates";
+import type { AnalaResult, AnalaEarlyExit, AnalaFullResult } from "./types";
 
-export async function runAnala(req: RunRequest = {}) {
+export async function runAnala(req: RunRequest = {}): Promise<AnalaResult> {
   const started = Date.now();
   const mode: Mode = "research"; // Anala operates in research mode
   const session = currentSession();
@@ -43,7 +44,7 @@ export async function runAnala(req: RunRequest = {}) {
   const resolved = await resolvePreStockInstrument(requested);
 
   if (!resolved.resolved || !resolved.instrument) {
-    const payload = {
+    const payload: AnalaEarlyExit = {
       id: runId,
       at: nowIso(),
       mode,
@@ -85,27 +86,82 @@ export async function runAnala(req: RunRequest = {}) {
     direction: "LONG", // Placeholder
   });
 
-  // Simplified confidence without technical indicators
+  const historyData = {
+    settled: history.settled,
+    wins: history.wins,
+    losses: history.settled - history.wins,
+  };
+
+  // Simplified confidence without technical indicators (PreStocks has no historical data)
   const confidence = computeConfidence({
-    mtf: { consensus: "NO_TRADE", confluence: 0, conflict: false },
-    regime: { regime: "trending", atrPct: 0 },
-    structure: { support: 0, resistance: 0 },
+    mtf: {
+      frames: [],
+      agreement: 0,
+      consensus: "NO_TRADE",
+      confluence: 0,
+      conflict: false
+    },
+    regime: {
+      regime: "trending",
+      volatility: "normal",
+      atrPct: 0,
+      chop: 0.5,
+      rationale: "No historical data for regime analysis"
+    },
+    structure: {
+      last: ticker.tokenPrice,
+      swingHigh: ticker.markPrice * 1.1,
+      swingLow: ticker.markPrice * 0.9,
+      support: ticker.markPrice * 0.95,
+      resistance: ticker.markPrice * 1.05,
+      trend: "sideways",
+      breakout: "none",
+      rangePct: 0.1
+    },
     technicals: {
       rsi: 50,
-      emaStack: "neutral",
+      emaStack: "mixed",
+      macdHist: 0,
       volumeRatio: 1,
-      macd: { hist: 0, signal: 0, macd: 0 },
-    },
+    } as any,
     micro: {
+      spread: 0,
       spreadBps: 0,
+      mid: ticker.tokenPrice,
+      bidDepth: 0,
+      askDepth: 0,
       pressure: "neutral",
-      imbalance: 0,
+      imbalance: 0.5,
+      tradeImbalance: 0,
+      aggressiveBuyShare: 0.5,
       cvd: 0,
+      cvdNote: "PreStocks: no order book data available",
+      largeTrades: [],
+      whaleNote: "No whale feed for tokenized stocks",
+      liquidityNote: "Liquidity data not available from PreStocks API",
+      capability: {
+        orderBook: "AVAILABLE",
+        publicFills: "AVAILABLE",
+        cvd: "WINDOW_ONLY",
+        whaleFeed: "UNAVAILABLE",
+        liquidationTape: "UNAVAILABLE",
+        openInterest: "AVAILABLE",
+        funding: "AVAILABLE"
+      }
     },
     fundingRate: 0,
     catalyst: research.catalyst,
-    correlation: { coefficient: 0, strength: "none" },
-    psychology: "neutral",
+    correlation: {
+      vsBtc: null,
+      sample: 0,
+      independent: true,
+      note: "No correlation data for pre-IPO stocks"
+    },
+    psychology: {
+      state: "neutral",
+      score: 50,
+      rationale: "Insufficient market data for psychology analysis"
+    },
     session: session.session,
     quality: research.quality,
     sampleTrades: history.settled,
@@ -120,12 +176,33 @@ export async function runAnala(req: RunRequest = {}) {
 
   const elders = await conveneElders({
     symbol: inst.symbol,
-    mtf: { consensus: "NO_TRADE", confluence: 0, conflict: false },
-    regime: { regime: "trending", atrPct: 0 },
-    structure: { support: 0, resistance: 0 },
+    mtf: {
+      frames: [],
+      agreement: 0,
+      consensus: "NO_TRADE",
+      confluence: 0,
+      conflict: false
+    },
+    regime: {
+      regime: "trending",
+      volatility: "normal",
+      atrPct: 0,
+      chop: 0.5,
+      rationale: "No historical data"
+    },
+    structure: {
+      last: ticker.tokenPrice,
+      swingHigh: ticker.markPrice * 1.1,
+      swingLow: ticker.markPrice * 0.9,
+      support: ticker.markPrice * 0.95,
+      resistance: ticker.markPrice * 1.05,
+      trend: "sideways",
+      breakout: "none",
+      rangePct: 0.1
+    },
     technicals: {
       rsi: 50,
-      emaStack: "neutral",
+      emaStack: "mixed",
       macdHist: 0,
       volumeRatio: 1,
     },
@@ -133,7 +210,7 @@ export async function runAnala(req: RunRequest = {}) {
       pressure: "neutral",
       spreadBps: 0,
       cvd: 0,
-      imbalance: 0,
+      imbalance: 0.5,
       blurb: "PreStocks data - no order book available",
     },
     catalyst: research.catalyst,
@@ -141,31 +218,85 @@ export async function runAnala(req: RunRequest = {}) {
     confidence,
     session,
     thesis,
-  });
+  } as any);
 
   const council = councilGate(elders);
 
   const risk = planRisk({
     instrument: {
       symbol: inst.symbol,
+      category: "PRESTOCK",
+      baseCoin: inst.symbol,
+      quoteCoin: "USD",
+      symbolType: "stock",
+      isRwa: true,
+      isReality: false,
+      status: "active",
+      type: "spot",
+      minLeverage: 1,
+      maxLeverage: 1,
       minOrderQty: inst.minOrderQty,
-      quantityPrecision: inst.quantityPrecision,
+      minOrderAmount: 10,
       pricePrecision: inst.pricePrecision,
-      maxLeverage: 1, // No leverage in research mode
+      quantityPrecision: inst.quantityPrecision,
+      quantityMultiplier: 1,
+      makerFeeRate: 0.001,
       takerFeeRate: 0.001,
+      fundInterval: 0,
+      buyLimitPriceRatio: 1.1,
+      sellLimitPriceRatio: 0.9,
     },
     last: ticker.tokenPrice,
     vote: council.passed ? council.consensus : "NO_TRADE",
     equityUsd: account.equityUsd,
     technicals: {
       rsi: 50,
-      emaStack: "neutral",
+      emaStack: "mixed",
+      macdHist: 0,
       volumeRatio: 1,
-      macd: { hist: 0, signal: 0, macd: 0 },
+    } as any,
+    structure: {
+      last: ticker.tokenPrice,
+      swingHigh: ticker.markPrice * 1.1,
+      swingLow: ticker.markPrice * 0.9,
+      support: ticker.markPrice * 0.95,
+      resistance: ticker.markPrice * 1.05,
+      trend: "sideways",
+      breakout: "none",
+      rangePct: 0.1
     },
-    structure: { support: 0, resistance: 0 },
-    micro: { spreadBps: 0, pressure: "neutral", imbalance: 0, cvd: 0 },
-    regime: { regime: "trending", atrPct: 0 },
+    micro: {
+      spread: 0,
+      spreadBps: 0,
+      mid: ticker.tokenPrice,
+      bidDepth: 0,
+      askDepth: 0,
+      pressure: "neutral",
+      imbalance: 0.5,
+      tradeImbalance: 0,
+      aggressiveBuyShare: 0.5,
+      cvd: 0,
+      cvdNote: "N/A",
+      largeTrades: [],
+      whaleNote: "N/A",
+      liquidityNote: "N/A",
+      capability: {
+        orderBook: "AVAILABLE",
+        publicFills: "AVAILABLE",
+        cvd: "WINDOW_ONLY",
+        whaleFeed: "UNAVAILABLE",
+        liquidationTape: "UNAVAILABLE",
+        openInterest: "AVAILABLE",
+        funding: "AVAILABLE"
+      }
+    },
+    regime: {
+      regime: "trending",
+      volatility: "normal",
+      atrPct: 0,
+      chop: 0.5,
+      rationale: "No historical data"
+    },
     calibrated: confidence.calibrated,
     fundingRate: 0,
     feeRate: 0.001,
@@ -208,15 +339,18 @@ export async function runAnala(req: RunRequest = {}) {
     : "NO TRADE";
   const noTradeReason = folded.failed?.reason ?? (decision === "NO TRADE" ? council.summary : undefined);
 
-  const payload = {
+  const payload: AnalaFullResult = {
     id: runId,
     at: nowIso(),
     durationMs: Date.now() - started,
     mode,
     session,
     resolved: {
-      ...resolved,
+      requested,
+      resolved: true,
       instrument: inst,
+      tradable: resolved.tradable,
+      reason: resolved.reason,
     },
     market: {
       ticker,
@@ -235,7 +369,7 @@ export async function runAnala(req: RunRequest = {}) {
     execution: null,
     account,
     openCount: 0,
-    history,
+    history: historyData,
     policy: {
       maxLeverage: policy.maxLeverage,
       quorum: policy.councilQuorum,

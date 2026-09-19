@@ -5,7 +5,7 @@ export type CapabilityClass =
   | "UNAVAILABLE"
   | "UNKNOWN";
 
-export type Mode = "paper" | "live" | "paused";
+export type Mode = "research" | "paper" | "live" | "paused";
 
 export type Vote = "LONG" | "SHORT" | "NO_TRADE";
 

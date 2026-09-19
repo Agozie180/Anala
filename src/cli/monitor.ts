@@ -1,26 +1,38 @@
-import { loadDotEnv } from "../lib/env";
-loadDotEnv();
-loadDotEnv();
+#!/usr/bin/env tsx
+/**
+ * Monitor Anala state (positions, kill switch).
+ */
 
-import { flattenAll, tickMonitor } from "../lib/monitor/tick";
-import { loadKill, resetKill } from "../lib/memory/store";
+import { loadKill, loadPositions } from "../lib/memory/store";
 
 async function main() {
-  const arg = process.argv[2];
-  if (arg === "reset") {
-    console.log(JSON.stringify(resetKill(), null, 2));
-    return;
+  console.log("=== ANALA MONITOR ===\n");
+
+  const kill = loadKill();
+  const positions = loadPositions();
+
+  console.log("Kill Switch:");
+  console.log(`  Tripped: ${kill.tripped ? "YES" : "NO"}`);
+  if (kill.tripped) {
+    console.log(`  Reasons: ${kill.reasons.join(", ")}`);
   }
-  if (arg === "flatten") {
-    const out = await flattenAll("CLI flatten");
-    console.log(JSON.stringify(out, null, 2));
-    return;
+  console.log(`  Failed orders: ${kill.failedOrders}`);
+  console.log();
+
+  console.log(`Open Positions: ${positions.length}`);
+  positions.forEach((p) => {
+    console.log(`  ${p.symbol} ${p.direction} @ ${p.entry}`);
+    console.log(`    Stop: ${p.stop}, Target: ${p.takeProfit}`);
+    console.log(`    Mode: ${p.mode}, Status: ${p.status}`);
+    console.log(`    Opened: ${p.openedAt}`);
+  });
+
+  if (positions.length === 0) {
+    console.log("  (none)");
   }
-  const out = await tickMonitor();
-  console.log(JSON.stringify(out, null, 2));
 }
 
 main().catch((err) => {
-  console.error(err);
+  console.error("Monitor failed:", err);
   process.exit(1);
 });

@@ -81,13 +81,25 @@ export async function runResearch(args: {
 
   // Simplified "why moving" for PreStocks
   const why: WhyMoving = {
+    question: "Why is this asset moving?",
     headline: `${args.companyName} (${ticker}) PreStocks token at $${args.tokenPrice.toFixed(2)}`,
-    priceAction: `Token trading at ${args.premium > 0 ? "+" : ""}${args.premium.toFixed(1)}% premium to mark`,
-    volume: "Volume data not available from PreStocks API",
-    catalyst: catalyst.classification,
-    correlation: "No correlation data available",
-    sentiment: items.some(it => it.kind === "news") ? "news present" : "limited news",
-    synthesis: `${args.companyName} tokenized on PreStocks. ${catalyst.classification === "known" ? "Identified catalyst." : "No clear catalyst."}`,
+    drivers: [
+      {
+        claim: `Token trading at ${args.premium > 0 ? "+" : ""}${args.premium.toFixed(1)}% premium to mark price`,
+        support: "PreStocks API pricing data",
+        confidence: 0.95
+      },
+      {
+        claim: `Implied valuation: $${(args.impliedValuation / 1e9).toFixed(2)}B`,
+        support: "PreStocks API",
+        confidence: 0.95
+      },
+    ],
+    unanswered: [
+      "Volume data not available from PreStocks API",
+      "No correlation data for pre-IPO stocks",
+      catalyst.classification === "none" ? "No clear catalyst identified" : ""
+    ].filter(Boolean),
   };
 
   notes.push(
