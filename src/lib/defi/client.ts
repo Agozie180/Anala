@@ -7,8 +7,8 @@ import { Connection, PublicKey, SystemProgram } from '@solana/web3.js';
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress } from '@solana/spl-token';
 import type { AnchorWallet } from '@solana/wallet-adapter-react';
 
-// Program ID (will be updated after deployment)
-const PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
+// Program ID (deployed Anala Lending program)
+const PROGRAM_ID = new PublicKey('7h6qLdbjD12HspcDc1vk8uCsf2STHGWJSkHH9FvyYNLG');
 
 // USDC mint on devnet
 const USDC_MINT = new PublicKey('4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU');

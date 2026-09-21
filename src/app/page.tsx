@@ -1,244 +1,186 @@
-"use client";
+import Link from "next/link";
 
-import { useEffect, useMemo, useState } from "react";
+const securityPoints = [
+  {
+    number: "01",
+    title: "Evidence before action",
+    copy: "Every market view is grounded in current PreStocks pricing, company research, and explicit data quality checks.",
+  },
+  {
+    number: "02",
+    title: "Conservative by design",
+    copy: "Missing data lowers confidence and borrowing capacity. The system can recommend no action instead of inventing certainty.",
+  },
+  {
+    number: "03",
+    title: "Solana-native settlement",
+    copy: "Wallet connection and future lending actions are designed around user-owned assets and transparent on-chain state.",
+  },
+  {
+    number: "04",
+    title: "Auditable decisions",
+    copy: "Research, risk inputs, and protocol assumptions are structured so teams can review how a decision was reached.",
+  },
+];
 
-type Run = Record<string, any>;
+const docs = [
+  { label: "Architecture", detail: "System map and boundaries", href: "/docs/ARCHITECTURE.md" },
+  { label: "Lending protocol", detail: "Collateral, LTV, and settlement", href: "/LENDING_PROTOCOL.md" },
+  { label: "Deployment guide", detail: "Environment and release notes", href: "/DEPLOYMENT_GUIDE.md" },
+];
 
 export default function Page() {
-  const [symbol, setSymbol] = useState("ANTHROPIC");
-  const [run, setRun] = useState<Run | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [question, setQuestion] = useState("Why didn't you trade?");
-  const [answer, setAnswer] = useState("");
-  const [desk, setDesk] = useState<Record<string, any> | null>(null);
-  const [perf, setPerf] = useState<Record<string, any> | null>(null);
-
-  async function refreshDesk() {
-    const res = await fetch("/api/state");
-    const json = await res.json();
-    if (json.ok) setDesk(json);
-  }
-
-  async function refreshPerf() {
-    const res = await fetch("/api/metrics");
-    const json = await res.json();
-    if (json.ok) setPerf(json.report);
-  }
-
-  async function analyze(execute = false) {
-    setBusy(true);
-    setError("");
-    try {
-      const res = await fetch("/api/run", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ symbol, execute }),
-      });
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error || "run failed");
-      setRun(json.run);
-      await refreshDesk();
-      await refreshPerf();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function ask() {
-    const res = await fetch("/api/ask", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, runId: run?.id }),
-    });
-    const json = await res.json();
-    setAnswer(json.answer || json.error || "");
-  }
-
-  const mode = String(run?.mode ?? "paper").toUpperCase();
-  const elders = (run?.elders ?? []) as { role: string; vote: string }[];
-  const gates = (run?.gates ?? []) as { name: string; passed: boolean; reason: string }[];
-  const items = (run?.research?.items ?? []) as { title: string; source: string; kind: string; publishedAt: string; reliability: number }[];
-  const adj = (run?.confidence?.adjustments ?? []) as { name: string; delta: number; reason: string }[];
-
-  const status = useMemo(() => (run?.decision === "NO TRADE" ? "fail" : "pass"), [run]);
-  useEffect(() => { void refreshDesk(); void refreshPerf(); }, []);
-
-  const p = perf ?? {};
-  const pfmt = (n: number | null | undefined, dp = 2) => (n === null || n === undefined ? "n/a" : Number(n).toFixed(dp));
-  const ppct = (n: number | null | undefined) => (n === null || n === undefined ? "n/a" : `${(Number(n) * 100).toFixed(1)}%`);
-
   return (
-    <main className="app">
-      <header className="top">
-        <div className="brand">
-          <h1>ANALA</h1>
-          <p>AI-native trading intelligence for PreStocks tokenized pre-IPO stocks on Solana</p>
+    <main className="landing-shell">
+      <nav className="site-nav" aria-label="Primary navigation">
+        <Link className="wordmark" href="/">
+          <span className="wordmark-mark">A</span>
+          <span>ANALA</span>
+        </Link>
+        <div className="nav-links">
+          <a href="#overview">Overview</a>
+          <a href="#security">Security</a>
+          <a href="#documentation">Docs</a>
         </div>
-        <div>
-          <span className={`badge ${mode === "LIVE" ? "live" : "paper"}`}>{mode} MODE</span>
-          <span className={`badge ${desk?.kill?.tripped ? "live" : "paper"}`}>{desk?.kill?.tripped ? "KILL TRIPPED" : "KILL CLEAR"}</span>
-          <span className="badge">{run?.session?.label ?? "SESSION n/a"}</span>
-        </div>
-      </header>
+        <Link className="button button-dark button-small" href="/lend">
+          Launch app <span aria-hidden="true">-&gt;</span>
+        </Link>
+      </nav>
 
-      <div className="row">
-        <input value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} />
-        <button disabled={busy} onClick={() => analyze(false)}>{busy ? "Running…" : "Analyze"}</button>
-        {error ? <span className="fail">{error}</span> : null}
-      </div>
-
-      <section className="grid">
-        <div className="panel">
-          <h2>Status</h2>
-          <div className="kv">
-            <span>Instrument</span><div>{run?.resolved?.futures?.symbol ?? "—"} ({run?.resolved?.futures?.symbolType ?? "—"})</div>
-            <span>rToken spot</span><div>{run?.resolved?.realitySpot?.symbol ?? "none mapped"}</div>
-            <span>Regime</span><div>{run?.intelligence?.regime?.regime ?? "—"}</div>
-            <span>Session gate</span><div>{run?.session ? `${(run.session.threshold * 100).toFixed(0)}% required` : "—"}</div>
-            <span>Calibrated</span><div className={status}>{(run?.confidence?.calibrated * 100 || 0).toFixed(1)}%</div>
-            <span>Decision</span><div className={status}>{run?.decision ?? "—"}</div>
+      <section className="landing-hero" id="overview">
+        <div className="hero-copy">
+          <p className="eyebrow">PRESTOCKS / SOLANA / RISK INFRASTRUCTURE</p>
+          <h1>Private-market access, with a public standard.</h1>
+          <p className="hero-lede">
+            Anala is a research and lending layer for tokenized pre-IPO assets. It turns live market data,
+            company signals, and protocol rules into a clear next action.
+          </p>
+          <div className="hero-actions">
+            <Link className="button button-dark" href="/lend">
+              Launch app <span aria-hidden="true">-&gt;</span>
+            </Link>
+            <a className="text-link" href="#documentation">
+              Read the docs <span aria-hidden="true">-&gt;</span>
+            </a>
+          </div>
+          <div className="hero-note">
+            <span className="status-dot" aria-hidden="true" />
+            <span>Research mode is live. Missing data is treated as no trade.</span>
           </div>
         </div>
 
-        <div className="panel span2">
-          <h2>Track record (paper)</h2>
-          <div className="kv">
-            <span>Settled</span><div>{p.sampleSize ?? 0} (W {p.wins ?? 0} / L {p.losses ?? 0} / BE {p.breakeven ?? 0})</div>
-            <span>Win rate</span><div>{ppct(p.winRate)}</div>
-            <span>Total P/L</span><div className={(p.totalPnlUsd ?? 0) >= 0 ? "pass" : "fail"}>{pfmt(p.totalPnlUsd)} USD · {pfmt(p.totalR)} R</div>
-            <span>Expectancy</span><div>{pfmt(p.expectancyUsd)} USD/trade · {pfmt(p.avgR)} R/trade</div>
-            <span>Profit factor</span><div>{pfmt(p.profitFactor)}</div>
-            <span>Sharpe /trade</span><div>{pfmt(p.sharpePerTrade)}</div>
-            <span>Sortino /trade</span><div>{pfmt(p.sortinoPerTrade)}</div>
-            <span>Max drawdown</span><div>{pfmt(p.maxDrawdownUsd)} USD · {pfmt(p.maxDrawdownR)} R</div>
-            <span>Best / worst</span><div>{pfmt(p.bestTradeUsd)} / {pfmt(p.worstTradeUsd)} USD</div>
-            <span>Avg hold</span><div>{pfmt(p.avgHoldMinutes)} min</div>
+        <div className="hero-visual" aria-label="Anala system overview">
+          <div className="visual-header">
+            <span>ANALA / SYSTEM VIEW</span>
+            <span className="visual-live">LIVE</span>
           </div>
-          {(p.notes ?? []).map((n: string, i: number) => (
-            <div className="item" key={i}>{n}</div>
-          ))}
-        </div>
-
-        <div className="panel">
-          <h2>Why is it moving</h2>
-          <p>{run?.research?.why?.headline ?? "Run analysis to load sourced research."}</p>
-          <div className="kv">
-            <span>Catalyst</span><div>{run?.research?.catalyst?.classification ?? "—"}</div>
-            <span>CIK</span><div>{run?.research?.cik ?? "no SEC map"}</div>
+          <div className="visual-main">
+            <p className="visual-kicker">Decision surface</p>
+            <p className="visual-value">01</p>
+            <p className="visual-caption">signal, risk, settlement</p>
           </div>
-          {(run?.research?.why?.drivers ?? []).slice(0, 4).map((d: { claim: string }, i: number) => (
-            <div className="item" key={i}>{d.claim}</div>
-          ))}
-        </div>
-
-        <div className="panel">
-          <h2>Council of Seven</h2>
-          {elders.length === 0 ? <p className="item">No votes yet.</p> : elders.map((e) => (
-            <div className="elder" key={e.role}>
-              <span>{e.role.replace(" Elder", "")}</span>
-              <strong className={e.vote === "LONG" ? "pass" : e.vote === "SHORT" ? "fail" : ""}>{e.vote}</strong>
-            </div>
-          ))}
-          <p>{run?.council?.summary}</p>
-        </div>
-
-        <div className="panel span2">
-          <h2>Research items (sourced)</h2>
-          {items.slice(0, 8).map((it, i) => (
-            <div className="item" key={i}>
-              <strong>{it.kind}</strong> — {it.title}
-              <small>{it.source} · {it.publishedAt} · reliability {it.reliability}</small>
-            </div>
-          ))}
-        </div>
-
-        <div className="panel">
-          <h2>Confidence trace</h2>
-          <div className="kv">
-            <span>Raw</span><div>{((run?.confidence?.raw ?? 0) * 100).toFixed(1)}%</div>
-            <span>Calibrated</span><div>{((run?.confidence?.calibrated ?? 0) * 100).toFixed(1)}%</div>
+          <div className="visual-rows">
+            <div><span>Market data</span><strong>CONNECTED</strong></div>
+            <div><span>Research quality</span><strong>CHECKED</strong></div>
+            <div><span>Wallet state</span><strong>USER CONTROLLED</strong></div>
           </div>
-          {adj.map((a) => (
-            <div className="item" key={a.name}>
-              {a.name} {a.delta.toFixed(2)} — {a.reason}
-            </div>
-          ))}
-        </div>
-
-        <div className="panel">
-          <h2>Gates</h2>
-          {gates.map((g) => (
-            <div className="elder" key={g.name}>
-              <span>{g.name}</span>
-              <span className={g.passed ? "pass" : "fail"}>{g.passed ? "PASS" : "FAIL"}</span>
-            </div>
-          ))}
-        </div>
-
-        <div className="panel">
-          <h2>Market</h2>
-          <div className="kv">
-            <span>Last</span><div>{run?.market?.ticker?.last ?? "—"}</div>
-            <span>Spread bps</span><div>{run?.intelligence?.micro?.spreadBps?.toFixed?.(2) ?? "—"}</div>
-            <span>Funding</span><div>{run?.market?.funding?.fundingRate ?? "—"}</div>
-            <span>OI</span><div>{run?.market?.openInterest ?? "—"}</div>
-            <span>MTF</span><div>{run?.intelligence?.mtf?.consensus} {(run?.intelligence?.mtf?.confluence * 100 || 0).toFixed(0)}%</div>
-            <span>Flow</span><div>{run?.intelligence?.micro?.whaleNote}</div>
+          <div className="visual-rule" />
+          <div className="visual-footer">
+            <span>DATA PROVENANCE</span>
+            <span>PRESTOCKS API</span>
           </div>
-        </div>
-
-        <div className="panel">
-          <h2>Execution</h2>
-          <div className="kv">
-            <span>Receipt</span><div>{run?.execution?.orderId ?? "—"}</div>
-            <span>State</span><div>{
-              !run?.execution ? "—"
-              : run.execution.error ? `blocked: ${run.execution.error}`
-              : run.execution.preview ? "PREVIEW — order not sent"
-              : run.execution.submitted ? `submitted (${String(run.execution.mode).toUpperCase()}${run.execution.positionConfirmed ? ", confirmed" : ""})`
-              : "not submitted"
-            }</div>
-            <span>Stop</span><div>{run?.risk?.stop || "—"}</div>
-            <span>TP</span><div>{run?.risk?.takeProfit || "—"}</div>
-            <span>Invalidation</span><div>{run?.risk?.invalidation || run?.noTradeReason || "—"}</div>
-          </div>
-        </div>
-
-        <div className="panel">
-          <h2>Open positions</h2>
-          {(desk?.open ?? []).length === 0 ? <p className="item">Flat.</p> : (desk?.open ?? []).map((p: any) => (
-            <div className="item" key={p.id}>
-              {p.symbol} {p.direction} @ {p.entry} · {String(p.mode).toUpperCase()} {p.orderId ?? "—"}
-              <small>SL {p.stop} TP {p.takeProfit} · {p.thesis}</small>
-            </div>
-          ))}
-        </div>
-        <div className="panel">
-          <h2>Self-review / memory</h2>
-          <p>{desk?.similar?.note ?? "No settled sample."}</p>
-          {(desk?.reviews ?? []).slice(0, 4).map((r: any) => (
-            <div className="item" key={r.tradeId}>
-              {r.symbol} {r.directionCorrect ? "direction ok" : "direction wrong"} · {r.rMultiple?.toFixed?.(2)}R
-              <small>{r.nextTime} · sample {r.sampleSize} · {r.confidenceCalibrated}</small>
-            </div>
-          ))}
-        </div>
-        <div className="panel span2">
-          <h2>Ask the desk</h2>
-          <div className="row">
-            <input className="ask" value={question} onChange={(e) => setQuestion(e.target.value)} />
-            <button className="ghost" onClick={ask}>Ask</button>
-          </div>
-          <div className="mono">{answer}</div>
         </div>
       </section>
-      <p className="footer">
-        PreStocks tokens are discovered live from prestocks.com API. Tokenized pre-IPO stocks on Solana.
-        Missing data is NO TRADE. Research mode provides analysis and recommendations. No fills are fabricated.
-      </p>
+
+      <section className="intro-section section-rule">
+        <div className="section-heading">
+          <p className="eyebrow">THE PLATFORM</p>
+          <h2>Clarity for a new market category.</h2>
+        </div>
+        <div className="intro-grid">
+          <article className="intro-block">
+            <span className="block-index">01 / WHAT IT IS</span>
+            <h3>A decision layer for tokenized private companies.</h3>
+            <p>
+              Anala brings PreStocks instruments, live pricing, company research, and lending constraints into one
+              operating surface. It is built to make every decision legible before capital moves.
+            </p>
+          </article>
+          <article className="intro-block">
+            <span className="block-index">02 / WHO IT IS FOR</span>
+            <h3>For operators who want context, not noise.</h3>
+            <p>
+              Use it to research emerging companies, evaluate collateral quality, and prepare a lending position from
+              a connected Solana wallet. Built for deliberate investors, treasury teams, and protocol contributors.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section className="security-section section-rule" id="security">
+        <div className="section-heading split-heading">
+          <div>
+            <p className="eyebrow">SECURITY MODEL</p>
+            <h2>Trust is a workflow.</h2>
+          </div>
+          <p className="section-summary">
+            Anala keeps its assumptions visible. The interface separates evidence, confidence, and execution so users
+            can make informed choices at every step.
+          </p>
+        </div>
+        <div className="security-grid">
+          {securityPoints.map((point) => (
+            <article className="security-item" key={point.number}>
+              <span className="block-index">{point.number}</span>
+              <h3>{point.title}</h3>
+              <p>{point.copy}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="launch-section">
+        <div className="launch-panel">
+          <div>
+            <p className="eyebrow">READY WHEN YOU ARE</p>
+            <h2>Bring your wallet to the desk.</h2>
+            <p>Explore available PreStocks collateral, review the risk readout, and stage a lending position.</p>
+          </div>
+          <Link className="button button-light" href="/lend">
+            Enter the workspace <span aria-hidden="true">-&gt;</span>
+          </Link>
+        </div>
+      </section>
+
+      <section className="docs-section section-rule" id="documentation">
+        <div className="section-heading split-heading">
+          <div>
+            <p className="eyebrow">DOCUMENTATION</p>
+            <h2>Open by default.</h2>
+          </div>
+          <p className="section-summary">The core assumptions, protocol shape, and release path are available to review.</p>
+        </div>
+        <div className="docs-grid">
+          {docs.map((doc) => (
+            <a className="doc-link" href={doc.href} key={doc.label}>
+              <span>
+                <strong>{doc.label}</strong>
+                <small>{doc.detail}</small>
+              </span>
+              <span className="doc-arrow" aria-hidden="true">-&gt;</span>
+            </a>
+          ))}
+        </div>
+      </section>
+
+      <footer className="site-footer">
+        <Link className="wordmark" href="/">
+          <span className="wordmark-mark">A</span>
+          <span>ANALA</span>
+        </Link>
+        <span>Research and lending infrastructure for PreStocks on Solana.</span>
+        <span>2026 / DEVNET READY</span>
+      </footer>
     </main>
   );
 }

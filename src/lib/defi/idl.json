@@ -1,4 +1,4 @@
-export const IDL = {
+{
   "version": "0.1.0",
   "name": "anala_lending",
   "instructions": [
@@ -90,7 +90,7 @@ export const IDL = {
   ],
   "accounts": [
     {
-      "name": "lendingPool",
+      "name": "LendingPool",
       "type": {
         "kind": "struct",
         "fields": [
@@ -108,7 +108,7 @@ export const IDL = {
       }
     },
     {
-      "name": "userPosition",
+      "name": "UserPosition",
       "type": {
         "kind": "struct",
         "fields": [
@@ -134,13 +134,6 @@ export const IDL = {
     { "code": 6006, "name": "InvalidLTV", "msg": "LTV ratio must be between 30% and 75%" },
     { "code": 6007, "name": "Overflow", "msg": "Arithmetic overflow" },
     { "code": 6008, "name": "Underflow", "msg": "Arithmetic underflow" }
-  ]
-};
-
-export type AnalaLending = {
-  version: "0.1.0";
-  name: "anala_lending";
-  instructions: Array<any>;
-  accounts: Array<any>;
-  errors: Array<any>;
-};
+  ],
+  "address": "7h6qLdbjD12HspcDc1vk8uCsf2STHGWJSkHH9FvyYNLG"
+}

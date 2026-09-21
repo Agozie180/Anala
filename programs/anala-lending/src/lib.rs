@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-declare_id!("11111111111111111111111111111111");
+declare_id!("7h6qLdbjD12HspcDc1vk8uCsf2STHGWJSkHH9FvyYNLG");
 
 #[program]
 pub mod anala_lending {
@@ -263,7 +263,6 @@ pub struct InitializePool<'info> {
 
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
-    pub rent: Sysvar<'info, Rent>,
 }
 
 #[derive(Accounts)]

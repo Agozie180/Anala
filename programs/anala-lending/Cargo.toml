@@ -16,5 +16,13 @@ cpi = ["no-entrypoint"]
 default = []
 
 [dependencies]
-anchor-lang = "0.30.1"
+anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
 anchor-spl = "0.30.1"
+
+# Pin blake3 to a pre-edition2024 release. solana-program 1.18.26 accepts any
+# blake3 >= 1.5.1; blake3 1.6+ pulls digest 0.11 / block-buffer 0.12, which use
+# Cargo's unstable `edition2024` feature. The Solana platform-tools SBF toolchain
+# ships Cargo 1.75, which cannot parse edition2024 manifests, so the build fails
+# during `cargo metadata` unless blake3 is held at 1.5.x. Pinning here keeps SBF
+# resolution deterministic even when the lockfile is re-resolved.
+blake3 = { version = "=1.5.5", default-features = false }

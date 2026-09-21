@@ -1,12 +1,28 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { resolvePreStockInstrument } from '@/lib/prestocks/instruments';
 import { calculateLTV } from '@/lib/defi/ltv';
+import { WalletContextProvider } from '@/components/WalletProvider';
 import type { PreStockInstrument } from '@/lib/prestocks/instruments';
 import type { LTVCalculation } from '@/lib/defi/ltv';
 
-export default function LendingPage() {
+function WalletSummary() {
+  const { connected, publicKey } = useWallet();
+  const address = publicKey?.toBase58();
+
+  return (
+    <div className="wallet-summary">
+      <span className={`connection-indicator ${connected ? 'is-connected' : ''}`} aria-hidden="true" />
+      <span>{connected && address ? `${address.slice(0, 4)}...${address.slice(-4)}` : 'Wallet not connected'}</span>
+    </div>
+  );
+}
+
+function LendingWorkspace() {
+  const { connected } = useWallet();
   const [selectedToken, setSelectedToken] = useState<string>('ANTHROPIC');
   const [instrument, setInstrument] = useState<PreStockInstrument | null>(null);
   const [ltvCalc, setLtvCalc] = useState<LTVCalculation | null>(null);
@@ -15,7 +31,7 @@ export default function LendingPage() {
   const [borrowAmount, setBorrowAmount] = useState<string>('0');
 
   useEffect(() => {
-    loadToken();
+    void loadToken();
   }, [selectedToken]);
 
   async function loadToken() {
@@ -26,9 +42,14 @@ export default function LendingPage() {
         setInstrument(resolved.instrument);
         const ltv = await calculateLTV(resolved.instrument);
         setLtvCalc(ltv);
+      } else {
+        setInstrument(null);
+        setLtvCalc(null);
       }
     } catch (error) {
       console.error('Failed to load token:', error);
+      setInstrument(null);
+      setLtvCalc(null);
     } finally {
       setLoading(false);
     }
@@ -40,294 +61,211 @@ export default function LendingPage() {
     return collateralValue * ltvCalc.adjustedLtv;
   }
 
+  function handleDemoAction(action: string) {
+    window.alert(connected
+      ? `${action} is ready for on-chain execution after deployment.`
+      : 'Connect a Solana wallet to continue.');
+  }
+
   const maxBorrow = calculateMaxBorrow();
   const borrowAmountNum = parseFloat(borrowAmount) || 0;
   const isValidBorrow = borrowAmountNum > 0 && borrowAmountNum <= maxBorrow;
+  const riskScore = ltvCalc?.riskScore.overall ?? 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-gray-950 text-white">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-12">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">Anala Lending</h1>
-            <p className="text-gray-400">AI-powered lending for PreStocks tokens</p>
-          </div>
-          <div className="bg-yellow-900/30 border border-yellow-500/50 rounded-xl px-6 py-3">
-            <div className="text-sm text-yellow-400 font-semibold">Demo Mode</div>
-            <div className="text-xs text-gray-400">Connect wallet after deployment</div>
-          </div>
+    <main className="app-shell">
+      <header className="app-nav">
+        <a className="wordmark" href="/">
+          <span className="wordmark-mark">A</span>
+          <span>ANALA</span>
+        </a>
+        <div className="app-nav-meta">
+          <span className="network-label"><span className="status-dot" aria-hidden="true" />Solana devnet</span>
+          <WalletSummary />
+          <WalletMultiButton className="wallet-button" />
         </div>
+      </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Left Column: Token Selection & Risk Analysis */}
-          <div className="space-y-6">
-            {/* Token Selection */}
-            <div className="bg-gray-900 rounded-2xl p-6">
-              <h2 className="text-xl font-bold mb-4">Select Collateral</h2>
-              <div className="grid grid-cols-3 gap-3">
-                {['ANTHROPIC', 'OPENAI', 'SPACEX'].map((token) => (
-                  <button
-                    key={token}
-                    onClick={() => setSelectedToken(token)}
-                    className={`p-4 rounded-xl font-semibold transition-all ${
-                      selectedToken === token
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-gray-800 text-gray-400 hover:bg-gray-750'
-                    }`}
-                  >
-                    {token}
-                  </button>
-                ))}
+      <section className="workspace-heading">
+        <div>
+          <p className="eyebrow">ANALA / LENDING DESK</p>
+          <h1>Collateral, with context.</h1>
+          <p className="workspace-lede">
+            Review a PreStocks asset, understand the risk boundary, and prepare a position from one focused workspace.
+          </p>
+        </div>
+        <div className="workspace-state">
+          <span className="state-label">WORKSPACE STATE</span>
+          <strong>{connected ? 'WALLET CONNECTED' : 'READ ONLY'}</strong>
+          <small>{connected ? 'Actions can be staged for your wallet.' : 'Connect to stage an action.'}</small>
+        </div>
+      </section>
+
+      <section className="market-strip" aria-label="Selected market summary">
+        <div className="market-strip-item market-selected">
+          <span className="strip-label">Selected instrument</span>
+          <strong>{instrument?.companyName ?? selectedToken}</strong>
+          <small>{instrument?.tokenName ?? 'Loading PreStocks instrument'}</small>
+        </div>
+        <div className="market-strip-item">
+          <span className="strip-label">Token price</span>
+          <strong>{instrument ? `$${instrument.tokenPrice.toFixed(2)}` : '--'}</strong>
+          <small>live PreStocks mark</small>
+        </div>
+        <div className="market-strip-item">
+          <span className="strip-label">Max LTV</span>
+          <strong>{ltvCalc ? `${(ltvCalc.adjustedLtv * 100).toFixed(1)}%` : '--'}</strong>
+          <small>risk-adjusted capacity</small>
+        </div>
+        <div className="market-strip-item">
+          <span className="strip-label">Data status</span>
+          <strong className="positive-text">{loading ? 'SYNCING' : 'CURRENT'}</strong>
+          <small>source: PreStocks API</small>
+        </div>
+      </section>
+
+      <section className="workspace-grid">
+        <div className="workspace-column">
+          <section className="surface token-surface">
+            <div className="surface-heading">
+              <div>
+                <p className="eyebrow">01 / COLLATERAL</p>
+                <h2>Select an instrument</h2>
               </div>
+              <span className="surface-note">PreStocks universe</span>
             </div>
-
-            {/* Risk Analysis */}
-            {loading ? (
-              <div className="bg-gray-900 rounded-2xl p-6">
-                <div className="animate-pulse">
-                  <div className="h-6 bg-gray-800 rounded w-1/2 mb-4"></div>
-                  <div className="h-4 bg-gray-800 rounded w-3/4 mb-2"></div>
-                  <div className="h-4 bg-gray-800 rounded w-2/3"></div>
-                </div>
-              </div>
-            ) : instrument && ltvCalc ? (
-              <div className="bg-gray-900 rounded-2xl p-6">
-                <h2 className="text-xl font-bold mb-4">🤖 AI Risk Assessment</h2>
-
-                <div className="mb-6">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-gray-400">Overall Risk Score</span>
-                    <span className="text-2xl font-bold">{ltvCalc.riskScore.overall.toFixed(1)}/100</span>
-                  </div>
-                  <div className="w-full bg-gray-800 rounded-full h-3">
-                    <div
-                      className={`h-3 rounded-full transition-all ${
-                        ltvCalc.riskScore.overall >= 60
-                          ? 'bg-green-500'
-                          : ltvCalc.riskScore.overall >= 45
-                          ? 'bg-yellow-500'
-                          : 'bg-red-500'
-                      }`}
-                      style={{ width: `${ltvCalc.riskScore.overall}%` }}
-                    ></div>
-                  </div>
-                </div>
-
-                <div className="space-y-3 mb-6">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Company Health</span>
-                    <span>{ltvCalc.riskScore.companyHealth}/100</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Market Health</span>
-                    <span>{ltvCalc.riskScore.marketHealth}/100</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Sentiment</span>
-                    <span>{ltvCalc.riskScore.sentimentScore.toFixed(1)}/10</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Confidence</span>
-                    <span>{ltvCalc.riskScore.confidenceLevel}/100</span>
-                  </div>
-                </div>
-
-                <div className="bg-purple-900/30 rounded-xl p-4 mb-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-gray-400">Max LTV Ratio</span>
-                    <span className="text-2xl font-bold text-purple-400">
-                      {(ltvCalc.adjustedLtv * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-400">{ltvCalc.recommendation}</p>
-                </div>
-
-                {ltvCalc.warnings.length > 0 && (
-                  <div className="space-y-2">
-                    {ltvCalc.warnings.map((warning, i) => (
-                      <div key={i} className="text-sm text-yellow-400 flex items-start gap-2">
-                        <span>⚠️</span>
-                        <span>{warning.replace(/^⚠️\s*/, '')}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : null}
-          </div>
-
-          {/* Right Column: Lending Interface */}
-          <div className="space-y-6">
-            {/* Deposit Collateral */}
-            <div className="bg-gray-900 rounded-2xl p-6">
-              <h2 className="text-xl font-bold mb-4">Deposit Collateral</h2>
-
-              {instrument && (
-                <div className="mb-4 p-4 bg-gray-800 rounded-xl">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-400">{instrument.companyName}</span>
-                    <span className="text-lg font-semibold">
-                      ${instrument.tokenPrice.toFixed(2)}
-                    </span>
-                  </div>
-                  <div className="text-sm text-gray-500 mt-1">
-                    Premium: {instrument.premium.toFixed(1)}%
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">
-                    Amount of {selectedToken} tokens
-                  </label>
-                  <input
-                    type="number"
-                    value={collateralAmount}
-                    onChange={(e) => setCollateralAmount(e.target.value)}
-                    className="w-full bg-gray-800 rounded-xl px-4 py-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-purple-600"
-                    placeholder="0.0"
-                    step="0.1"
-                    min="0"
-                  />
-                  {instrument && collateralAmount && (
-                    <div className="text-sm text-gray-400 mt-2">
-                      ≈ ${(parseFloat(collateralAmount) * instrument.tokenPrice).toLocaleString(undefined, {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2,
-                      })}
-                    </div>
-                  )}
-                </div>
-
+            <div className="token-list">
+              {['ANTHROPIC', 'OPENAI', 'SPACEX'].map((token) => (
                 <button
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-4 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={!collateralAmount || parseFloat(collateralAmount) <= 0}
-                  onClick={() => alert('Connect wallet after deployment to deposit collateral')}
+                  key={token}
+                  type="button"
+                  onClick={() => setSelectedToken(token)}
+                  className={`token-option ${selectedToken === token ? 'is-selected' : ''}`}
                 >
-                  Deposit Collateral (Demo)
-                </button>
-              </div>
-            </div>
-
-            {/* Borrow USDC */}
-            <div className="bg-gray-900 rounded-2xl p-6">
-              <h2 className="text-xl font-bold mb-4">Borrow USDC</h2>
-
-              <div className="mb-4 p-4 bg-purple-900/20 rounded-xl border border-purple-500/30">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-400">Max Borrow</span>
-                  <span className="text-2xl font-bold text-purple-400">
-                    ${maxBorrow.toLocaleString(undefined, {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                  <span className="token-symbol">{token.slice(0, 2)}</span>
+                  <span>
+                    <strong>{token}</strong>
+                    <small>PreStocks token</small>
                   </span>
-                </div>
-                <div className="text-sm text-gray-500 mt-1">
-                  Based on {ltvCalc ? (ltvCalc.adjustedLtv * 100).toFixed(1) : '0'}% LTV
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm text-gray-400 mb-2">
-                    Borrow Amount (USDC)
-                  </label>
-                  <input
-                    type="number"
-                    value={borrowAmount}
-                    onChange={(e) => setBorrowAmount(e.target.value)}
-                    className="w-full bg-gray-800 rounded-xl px-4 py-3 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-purple-600"
-                    placeholder="0.0"
-                    step="100"
-                    min="0"
-                    max={maxBorrow}
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setBorrowAmount((maxBorrow * 0.5).toFixed(2))}
-                    className="flex-1 bg-gray-800 hover:bg-gray-750 text-white py-2 rounded-lg text-sm transition-colors"
-                  >
-                    50%
-                  </button>
-                  <button
-                    onClick={() => setBorrowAmount((maxBorrow * 0.75).toFixed(2))}
-                    className="flex-1 bg-gray-800 hover:bg-gray-750 text-white py-2 rounded-lg text-sm transition-colors"
-                  >
-                    75%
-                  </button>
-                  <button
-                    onClick={() => setBorrowAmount(maxBorrow.toFixed(2))}
-                    className="flex-1 bg-gray-800 hover:bg-gray-750 text-white py-2 rounded-lg text-sm transition-colors"
-                  >
-                    Max
-                  </button>
-                </div>
-
-                <button
-                  className={`w-full font-semibold py-4 rounded-xl transition-colors ${
-                    isValidBorrow
-                      ? 'bg-green-600 hover:bg-green-700 text-white'
-                      : 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                  }`}
-                  disabled={!isValidBorrow}
-                  onClick={() => alert('Connect wallet after deployment to borrow USDC')}
-                >
-                  Borrow USDC (Demo)
+                  <span className="option-arrow" aria-hidden="true">-&gt;</span>
                 </button>
+              ))}
+            </div>
+            {instrument && (
+              <div className="instrument-preview">
+                {instrument.image ? <img src={instrument.image} alt="" /> : <span className="preview-fallback">{instrument.companyName.slice(0, 1)}</span>}
+                <div>
+                  <strong>{instrument.companyName}</strong>
+                  <span>{instrument.description || 'Tokenized exposure to a private company.'}</span>
+                </div>
+                <span className="premium-value">{instrument.premium >= 0 ? '+' : ''}{instrument.premium.toFixed(1)}% premium</span>
+              </div>
+            )}
+          </section>
 
-                {borrowAmountNum > maxBorrow && (
-                  <div className="text-sm text-red-400 text-center">
-                    Amount exceeds max borrow limit
+          <section className="surface risk-surface">
+            <div className="surface-heading">
+              <div>
+                <p className="eyebrow">02 / RISK READOUT</p>
+                <h2>Dynamic lending boundary</h2>
+              </div>
+              <span className={`risk-status ${riskScore >= 60 ? 'is-healthy' : ''}`}>{riskScore >= 60 ? 'HEALTHY' : 'REVIEW'}</span>
+            </div>
+            {loading ? (
+              <div className="loading-state" aria-label="Loading risk assessment">
+                <span />
+                <span />
+                <span />
+              </div>
+            ) : ltvCalc ? (
+              <>
+                <div className="risk-hero">
+                  <div>
+                    <span className="strip-label">Overall risk score</span>
+                    <strong>{riskScore.toFixed(1)}<small>/100</small></strong>
+                  </div>
+                  <div className="risk-meter"><span style={{ width: `${Math.min(100, Math.max(0, riskScore))}%` }} /></div>
+                </div>
+                <div className="risk-facts">
+                  <div><span>Company health</span><strong>{ltvCalc.riskScore.companyHealth}/100</strong></div>
+                  <div><span>Market health</span><strong>{ltvCalc.riskScore.marketHealth}/100</strong></div>
+                  <div><span>Sentiment</span><strong>{ltvCalc.riskScore.sentimentScore.toFixed(1)}/10</strong></div>
+                  <div><span>Confidence</span><strong>{ltvCalc.riskScore.confidenceLevel}/100</strong></div>
+                </div>
+                <div className="risk-recommendation">
+                  <div><span>Recommended limit</span><strong>{(ltvCalc.adjustedLtv * 100).toFixed(1)}%</strong></div>
+                  <p>{ltvCalc.recommendation}</p>
+                </div>
+                {ltvCalc.warnings.length > 0 && (
+                  <div className="risk-warnings">
+                    {ltvCalc.warnings.map((warning, i) => <p key={i}>{warning.replace(/^[^ ]+\s*/, '')}</p>)}
                   </div>
                 )}
-              </div>
-
-              <div className="mt-6 pt-6 border-t border-gray-800">
-                <div className="text-sm text-gray-400 space-y-2">
-                  <div className="flex justify-between">
-                    <span>Interest Rate</span>
-                    <span>5% APY</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Estimated Daily Interest</span>
-                    <span>${((borrowAmountNum * 0.05) / 365).toFixed(4)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+              </>
+            ) : (
+              <p className="empty-state">Select a live instrument to load its assessment.</p>
+            )}
+          </section>
         </div>
 
-        {/* Info Banner */}
-        <div className="mt-12 bg-purple-900/20 border border-purple-500/30 rounded-2xl p-6">
-          <h3 className="text-lg font-bold mb-3">🤖 How Anala Lending Works</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-sm">
-            <div>
-              <div className="font-semibold mb-2">1. AI Risk Assessment</div>
-              <div className="text-gray-400">
-                Anala analyzes company health, market conditions, sentiment, and data quality
+        <div className="workspace-column">
+          <section className="surface action-surface">
+            <div className="surface-heading">
+              <div>
+                <p className="eyebrow">03 / POSITION</p>
+                <h2>Stage an action</h2>
               </div>
+              <span className="surface-note">Demo execution</span>
             </div>
-            <div>
-              <div className="font-semibold mb-2">2. Dynamic LTV</div>
-              <div className="text-gray-400">
-                Your borrowing limit adjusts based on real-time risk analysis (30-75%)
+
+            <div className="action-block">
+              <div className="action-block-heading"><span>Deposit collateral</span><span>01</span></div>
+              {instrument && <div className="action-asset"><span>{instrument.companyName}</span><strong>${instrument.tokenPrice.toFixed(2)} / token</strong></div>}
+              <label className="field-label" htmlFor="collateral-amount">Amount of {selectedToken} tokens</label>
+              <div className="input-shell"><input id="collateral-amount" type="number" value={collateralAmount} onChange={(e) => setCollateralAmount(e.target.value)} placeholder="0.0" step="0.1" min="0" /><span>{selectedToken}</span></div>
+              {instrument && collateralAmount && <p className="field-hint">Estimated value ${(parseFloat(collateralAmount) * instrument.tokenPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>}
+              <button className="button button-dark action-button" type="button" disabled={!collateralAmount || parseFloat(collateralAmount) <= 0} onClick={() => handleDemoAction('Collateral deposit')}>
+                {connected ? 'Review collateral deposit' : 'Connect wallet to deposit'} <span aria-hidden="true">-&gt;</span>
+              </button>
+            </div>
+
+            <div className="action-divider" />
+
+            <div className="action-block">
+              <div className="action-block-heading"><span>Borrow USDC</span><span>02</span></div>
+              <div className="borrow-limit"><span>Available to borrow</span><strong>${maxBorrow.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong><small>Based on {(ltvCalc?.adjustedLtv ? ltvCalc.adjustedLtv * 100 : 0).toFixed(1)}% LTV</small></div>
+              <label className="field-label" htmlFor="borrow-amount">Borrow amount</label>
+              <div className="input-shell"><input id="borrow-amount" type="number" value={borrowAmount} onChange={(e) => setBorrowAmount(e.target.value)} placeholder="0.0" step="100" min="0" max={maxBorrow} /><span>USDC</span></div>
+              <div className="quick-values">
+                <button type="button" onClick={() => setBorrowAmount((maxBorrow * 0.5).toFixed(2))}>50%</button>
+                <button type="button" onClick={() => setBorrowAmount((maxBorrow * 0.75).toFixed(2))}>75%</button>
+                <button type="button" onClick={() => setBorrowAmount(maxBorrow.toFixed(2))}>MAX</button>
               </div>
+              <button className={`button action-button ${isValidBorrow ? 'button-dark' : 'button-disabled'}`} type="button" disabled={!isValidBorrow} onClick={() => handleDemoAction('USDC borrow')}>
+                {connected ? 'Review USDC borrow' : 'Connect wallet to borrow'} <span aria-hidden="true">-&gt;</span>
+              </button>
+              {borrowAmountNum > maxBorrow && <p className="error-text">Amount exceeds the current borrowing limit.</p>}
+              <div className="interest-row"><span>Interest rate</span><strong>5.00% APY</strong><span>Daily estimate</span><strong>${((borrowAmountNum * 0.05) / 365).toFixed(4)}</strong></div>
             </div>
-            <div>
-              <div className="font-semibold mb-2">3. Borrow & Repay</div>
-              <div className="text-gray-400">
-                Deposit PreStocks tokens, borrow USDC, repay anytime to withdraw collateral
-              </div>
-            </div>
-          </div>
+          </section>
         </div>
-      </div>
-    </div>
+      </section>
+
+      <section className="execution-strip">
+        <div><span className="step-number">01</span><div><strong>Connect</strong><span>Bring a Solana wallet</span></div></div>
+        <div><span className="step-number">02</span><div><strong>Review</strong><span>Understand the risk boundary</span></div></div>
+        <div><span className="step-number">03</span><div><strong>Settle</strong><span>Confirm only what you intend</span></div></div>
+      </section>
+
+      <footer className="app-footer"><span>ANALA / PRESTOCKS LENDING</span><span>Research first. Settlement second.</span><a href="/">Back to overview -&gt;</a></footer>
+    </main>
+  );
+}
+
+export default function LendingPage() {
+  return (
+    <WalletContextProvider>
+      <LendingWorkspace />
+    </WalletContextProvider>
   );
 }
