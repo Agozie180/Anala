@@ -70,3 +70,12 @@ data/*.json
 # Reports
 reports/*.json
 reports/*.csv
+
+# Build / install logs (local artifacts)
+build.log
+dev.log
+install*.log
+
+# Agent instruction files (never commit)
+AGENTS.md
+CLAUDE.md
