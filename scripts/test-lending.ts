@@ -66,7 +66,7 @@ async function main() {
   );
 
   // deposit_collateral discriminator
-  const depositDiscriminator = Buffer.from([242, 35, 198, 137, 82, 225, 242, 182]);
+  const depositDiscriminator = Buffer.from([156, 131, 142, 116, 146, 247, 162, 120]);
   const amount = Buffer.alloc(8);
   amount.writeBigUInt64LE(BigInt(10 * 10 ** 9));
   const depositData = Buffer.concat([depositDiscriminator, amount]);
