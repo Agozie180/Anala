@@ -79,3 +79,4 @@ install*.log
 # Agent instruction files (never commit)
 AGENTS.md
 CLAUDE.md
+.env*

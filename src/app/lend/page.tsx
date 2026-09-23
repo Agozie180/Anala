@@ -1,11 +1,27 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useWallet } from '@solana/wallet-adapter-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { resolvePreStockInstrument } from '@/lib/prestocks/instruments';
 import { calculateLTV } from '@/lib/defi/ltv';
 import { WalletContextProvider } from '@/components/WalletProvider';
+import {
+  networkLabel,
+  isConfigured,
+  explorerTx,
+  explainError,
+  fetchMarket,
+  fetchPosition,
+  deposit as depositTx,
+  borrow as borrowTx,
+  repay as repayTx,
+  withdraw as withdrawTx,
+  type TokenSymbol,
+  type MarketState,
+  type PositionState,
+  type WalletCtx,
+} from '@/lib/defi/lending';
 import type { PreStockInstrument } from '@/lib/prestocks/instruments';
 import type { LTVCalculation } from '@/lib/defi/ltv';
 
@@ -21,18 +37,55 @@ function WalletSummary() {
   );
 }
 
+type TxState = { status: 'pending' | 'success' | 'error'; message: string; sig?: string } | null;
+
 function LendingWorkspace() {
-  const { connected } = useWallet();
-  const [selectedToken, setSelectedToken] = useState<string>('ANTHROPIC');
+  const { connection } = useConnection();
+  const { connected, publicKey, sendTransaction } = useWallet();
+
+  const [selectedToken, setSelectedToken] = useState<TokenSymbol>('ANTHROPIC');
   const [instrument, setInstrument] = useState<PreStockInstrument | null>(null);
   const [ltvCalc, setLtvCalc] = useState<LTVCalculation | null>(null);
   const [loading, setLoading] = useState(false);
   const [collateralAmount, setCollateralAmount] = useState<string>('10');
   const [borrowAmount, setBorrowAmount] = useState<string>('0');
+  const [repayAmount, setRepayAmount] = useState<string>('0');
+  const [withdrawAmount, setWithdrawAmount] = useState<string>('0');
+
+  const [market, setMarket] = useState<MarketState | null>(null);
+  const [position, setPosition] = useState<PositionState | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [tx, setTx] = useState<TxState>(null);
+
+  const configured = isConfigured(selectedToken);
+  const poolReady = configured && market?.poolExists === true;
 
   useEffect(() => {
     void loadToken();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedToken]);
+
+  const refreshChain = useCallback(async () => {
+    if (!configured) {
+      setMarket(null);
+      setPosition(null);
+      return;
+    }
+    try {
+      const [m, p] = await Promise.all([
+        fetchMarket(connection, selectedToken),
+        publicKey ? fetchPosition(connection, selectedToken, publicKey) : Promise.resolve(null),
+      ]);
+      setMarket(m);
+      setPosition(p);
+    } catch (error) {
+      console.error('Failed to read chain state:', error);
+    }
+  }, [connection, selectedToken, publicKey, configured]);
+
+  useEffect(() => {
+    void refreshChain();
+  }, [refreshChain]);
 
   async function loadToken() {
     setLoading(true);
@@ -61,16 +114,47 @@ function LendingWorkspace() {
     return collateralValue * ltvCalc.adjustedLtv;
   }
 
-  function handleDemoAction(action: string) {
-    window.alert(connected
-      ? `${action} is ready for on-chain execution after deployment.`
-      : 'Connect a Solana wallet to continue.');
+  async function runAction(kind: string, label: string, fn: (ctx: WalletCtx) => Promise<string>) {
+    if (!publicKey || !sendTransaction) {
+      setTx({ status: 'error', message: 'Connect a Solana wallet to continue.' });
+      return;
+    }
+    if (!poolReady) {
+      setTx({ status: 'error', message: `This market is not live on ${networkLabel()} yet.` });
+      return;
+    }
+    setBusy(kind);
+    setTx({ status: 'pending', message: `${label} — approve the transaction in your wallet…` });
+    try {
+      const ctx: WalletCtx = { connection, publicKey, sendTransaction };
+      const sig = await fn(ctx);
+      setTx({ status: 'success', message: `${label} confirmed on ${networkLabel()}.`, sig });
+      await refreshChain();
+    } catch (error) {
+      console.error(`${kind} failed:`, error);
+      setTx({ status: 'error', message: explainError(error) });
+    } finally {
+      setBusy(null);
+    }
   }
 
   const maxBorrow = calculateMaxBorrow();
   const borrowAmountNum = parseFloat(borrowAmount) || 0;
+  const repayAmountNum = parseFloat(repayAmount) || 0;
+  const withdrawAmountNum = parseFloat(withdrawAmount) || 0;
   const isValidBorrow = borrowAmountNum > 0 && borrowAmountNum <= maxBorrow;
   const riskScore = ltvCalc?.riskScore.overall ?? 0;
+
+  const collateralOnChain = position?.collateral ?? 0;
+  const borrowedOnChain = position?.borrowed ?? 0;
+  const hasCollateral = collateralOnChain > 0;
+  const hasDebt = borrowedOnChain > 0;
+
+  const canDeposit = connected && poolReady && !busy && parseFloat(collateralAmount) > 0;
+  const canBorrow = connected && poolReady && !busy && isValidBorrow && hasCollateral;
+  const canRepay = connected && poolReady && !busy && repayAmountNum > 0 && repayAmountNum <= borrowedOnChain;
+  const canWithdraw =
+    connected && poolReady && !busy && withdrawAmountNum > 0 && withdrawAmountNum <= collateralOnChain && !hasDebt;
 
   return (
     <main className="app-shell">
@@ -80,7 +164,7 @@ function LendingWorkspace() {
           <span>ANALA</span>
         </a>
         <div className="app-nav-meta">
-          <span className="network-label"><span className="status-dot" aria-hidden="true" />Solana devnet</span>
+          <span className="network-label"><span className="status-dot" aria-hidden="true" />{networkLabel()}</span>
           <WalletSummary />
           <WalletMultiButton className="wallet-button" />
         </div>
@@ -91,13 +175,13 @@ function LendingWorkspace() {
           <p className="eyebrow">ANALA / LENDING DESK</p>
           <h1>Collateral, with context.</h1>
           <p className="workspace-lede">
-            Review a PreStocks asset, understand the risk boundary, and prepare a position from one focused workspace.
+            Review a PreStocks asset, understand the risk boundary, and open a position on-chain from one focused workspace.
           </p>
         </div>
         <div className="workspace-state">
           <span className="state-label">WORKSPACE STATE</span>
           <strong>{connected ? 'WALLET CONNECTED' : 'READ ONLY'}</strong>
-          <small>{connected ? 'Actions can be staged for your wallet.' : 'Connect to stage an action.'}</small>
+          <small>{connected ? 'Actions settle on-chain from your wallet.' : 'Connect to open a position.'}</small>
         </div>
       </section>
 
@@ -118,11 +202,35 @@ function LendingWorkspace() {
           <small>risk-adjusted capacity</small>
         </div>
         <div className="market-strip-item">
-          <span className="strip-label">Data status</span>
-          <strong className="positive-text">{loading ? 'SYNCING' : 'CURRENT'}</strong>
-          <small>source: PreStocks API</small>
+          <span className="strip-label">Pool liquidity</span>
+          <strong className={poolReady ? 'positive-text' : ''}>
+            {poolReady ? `$${(market?.totalBorrowed ?? 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} borrowed` : configured ? 'NOT LIVE' : 'UNCONFIGURED'}
+          </strong>
+          <small>{poolReady ? `on ${networkLabel()}` : `market on ${networkLabel()}`}</small>
         </div>
       </section>
+
+      {tx && (
+        <div className={`tx-banner is-${tx.status}`} role="status">
+          <span>{tx.message}</span>
+          {tx.sig && (
+            <a className="tx-link" href={explorerTx(tx.sig)} target="_blank" rel="noreferrer">
+              View transaction -&gt;
+            </a>
+          )}
+        </div>
+      )}
+
+      {configured && market && !market.poolExists && (
+        <div className="tx-banner is-error" role="status">
+          <span>The {selectedToken} pool is not initialized on {networkLabel()} yet. Run the devnet setup script to go live.</span>
+        </div>
+      )}
+      {!configured && (
+        <div className="tx-banner is-error" role="status">
+          <span>{selectedToken} is not configured for {networkLabel()}. Set the NEXT_PUBLIC_*_MINT env vars.</span>
+        </div>
+      )}
 
       <section className="workspace-grid">
         <div className="workspace-column">
@@ -135,7 +243,7 @@ function LendingWorkspace() {
               <span className="surface-note">PreStocks universe</span>
             </div>
             <div className="token-list">
-              {['ANTHROPIC', 'OPENAI', 'SPACEX'].map((token) => (
+              {(['ANTHROPIC', 'OPENAI', 'SPACEX'] as TokenSymbol[]).map((token) => (
                 <button
                   key={token}
                   type="button"
@@ -213,10 +321,22 @@ function LendingWorkspace() {
             <div className="surface-heading">
               <div>
                 <p className="eyebrow">03 / POSITION</p>
-                <h2>Stage an action</h2>
+                <h2>Open a position</h2>
               </div>
-              <span className="surface-note">Demo execution</span>
+              <span className="surface-note">{poolReady ? 'On-chain execution' : 'Awaiting pool'}</span>
             </div>
+
+            <div className="action-block">
+              <div className="borrow-limit">
+                <span>Your collateral</span>
+                <strong>{collateralOnChain.toLocaleString(undefined, { maximumFractionDigits: 4 })} {selectedToken}</strong>
+                <span>Your debt</span>
+                <strong>${borrowedOnChain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                <small>{connected ? `Live position on ${networkLabel()}` : 'Connect a wallet to load your position'}</small>
+              </div>
+            </div>
+
+            <div className="action-divider" />
 
             <div className="action-block">
               <div className="action-block-heading"><span>Deposit collateral</span><span>01</span></div>
@@ -224,8 +344,13 @@ function LendingWorkspace() {
               <label className="field-label" htmlFor="collateral-amount">Amount of {selectedToken} tokens</label>
               <div className="input-shell"><input id="collateral-amount" type="number" value={collateralAmount} onChange={(e) => setCollateralAmount(e.target.value)} placeholder="0.0" step="0.1" min="0" /><span>{selectedToken}</span></div>
               {instrument && collateralAmount && <p className="field-hint">Estimated value ${(parseFloat(collateralAmount) * instrument.tokenPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>}
-              <button className="button button-dark action-button" type="button" disabled={!collateralAmount || parseFloat(collateralAmount) <= 0} onClick={() => handleDemoAction('Collateral deposit')}>
-                {connected ? 'Review collateral deposit' : 'Connect wallet to deposit'} <span aria-hidden="true">-&gt;</span>
+              <button
+                className={`button action-button ${canDeposit ? 'button-dark' : 'button-disabled'}`}
+                type="button"
+                disabled={!canDeposit}
+                onClick={() => runAction('deposit', 'Collateral deposit', (ctx) => depositTx(ctx, selectedToken, collateralAmount))}
+              >
+                {busy === 'deposit' ? 'Depositing…' : connected ? 'Deposit collateral' : 'Connect wallet to deposit'} <span aria-hidden="true">-&gt;</span>
               </button>
             </div>
 
@@ -241,11 +366,62 @@ function LendingWorkspace() {
                 <button type="button" onClick={() => setBorrowAmount((maxBorrow * 0.75).toFixed(2))}>75%</button>
                 <button type="button" onClick={() => setBorrowAmount(maxBorrow.toFixed(2))}>MAX</button>
               </div>
-              <button className={`button action-button ${isValidBorrow ? 'button-dark' : 'button-disabled'}`} type="button" disabled={!isValidBorrow} onClick={() => handleDemoAction('USDC borrow')}>
-                {connected ? 'Review USDC borrow' : 'Connect wallet to borrow'} <span aria-hidden="true">-&gt;</span>
+              <button
+                className={`button action-button ${canBorrow ? 'button-dark' : 'button-disabled'}`}
+                type="button"
+                disabled={!canBorrow}
+                onClick={() => runAction('borrow', 'USDC borrow', (ctx) => borrowTx(ctx, selectedToken, borrowAmount))}
+              >
+                {busy === 'borrow' ? 'Borrowing…' : connected ? 'Borrow USDC' : 'Connect wallet to borrow'} <span aria-hidden="true">-&gt;</span>
               </button>
+              {connected && poolReady && !hasCollateral && <p className="field-hint">Deposit collateral to unlock borrowing.</p>}
               {borrowAmountNum > maxBorrow && <p className="error-text">Amount exceeds the current borrowing limit.</p>}
-              <div className="interest-row"><span>Interest rate</span><strong>5.00% APY</strong><span>Daily estimate</span><strong>${((borrowAmountNum * 0.05) / 365).toFixed(4)}</strong></div>
+              <div className="interest-row"><span>Interest rate</span><strong>{market ? (market.interestRateBps / 100).toFixed(2) : '5.00'}% APY</strong><span>Daily estimate</span><strong>${((borrowAmountNum * 0.05) / 365).toFixed(4)}</strong></div>
+            </div>
+
+            <div className="action-divider" />
+
+            <div className="action-block">
+              <div className="action-block-heading"><span>Repay USDC</span><span>03</span></div>
+              <div className="borrow-limit"><span>Outstanding debt</span><strong>${borrowedOnChain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong><small>Repay to release your collateral</small></div>
+              <label className="field-label" htmlFor="repay-amount">Repay amount</label>
+              <div className="input-shell"><input id="repay-amount" type="number" value={repayAmount} onChange={(e) => setRepayAmount(e.target.value)} placeholder="0.0" step="100" min="0" max={borrowedOnChain} /><span>USDC</span></div>
+              <div className="quick-values">
+                <button type="button" onClick={() => setRepayAmount((borrowedOnChain * 0.5).toFixed(2))}>50%</button>
+                <button type="button" onClick={() => setRepayAmount(borrowedOnChain.toFixed(2))}>MAX</button>
+              </div>
+              <button
+                className={`button action-button ${canRepay ? 'button-dark' : 'button-disabled'}`}
+                type="button"
+                disabled={!canRepay}
+                onClick={() => runAction('repay', 'USDC repay', (ctx) => repayTx(ctx, selectedToken, repayAmount))}
+              >
+                {busy === 'repay' ? 'Repaying…' : connected ? 'Repay USDC' : 'Connect wallet to repay'} <span aria-hidden="true">-&gt;</span>
+              </button>
+              {repayAmountNum > borrowedOnChain && <p className="error-text">Amount exceeds your outstanding debt.</p>}
+            </div>
+
+            <div className="action-divider" />
+
+            <div className="action-block">
+              <div className="action-block-heading"><span>Withdraw collateral</span><span>04</span></div>
+              <div className="borrow-limit"><span>Deposited collateral</span><strong>{collateralOnChain.toLocaleString(undefined, { maximumFractionDigits: 4 })} {selectedToken}</strong><small>{hasDebt ? 'Repay your debt before withdrawing' : 'Available to withdraw'}</small></div>
+              <label className="field-label" htmlFor="withdraw-amount">Withdraw amount</label>
+              <div className="input-shell"><input id="withdraw-amount" type="number" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} placeholder="0.0" step="0.1" min="0" max={collateralOnChain} /><span>{selectedToken}</span></div>
+              <div className="quick-values">
+                <button type="button" onClick={() => setWithdrawAmount((collateralOnChain * 0.5).toFixed(4))}>50%</button>
+                <button type="button" onClick={() => setWithdrawAmount(collateralOnChain.toFixed(4))}>MAX</button>
+              </div>
+              <button
+                className={`button action-button ${canWithdraw ? 'button-dark' : 'button-disabled'}`}
+                type="button"
+                disabled={!canWithdraw}
+                onClick={() => runAction('withdraw', 'Collateral withdrawal', (ctx) => withdrawTx(ctx, selectedToken, withdrawAmount))}
+              >
+                {busy === 'withdraw' ? 'Withdrawing…' : connected ? 'Withdraw collateral' : 'Connect wallet to withdraw'} <span aria-hidden="true">-&gt;</span>
+              </button>
+              {hasDebt && <p className="error-text">Repay your outstanding debt before withdrawing collateral.</p>}
+              {withdrawAmountNum > collateralOnChain && <p className="error-text">Amount exceeds your deposited collateral.</p>}
             </div>
           </section>
         </div>
@@ -253,8 +429,8 @@ function LendingWorkspace() {
 
       <section className="execution-strip">
         <div><span className="step-number">01</span><div><strong>Connect</strong><span>Bring a Solana wallet</span></div></div>
-        <div><span className="step-number">02</span><div><strong>Review</strong><span>Understand the risk boundary</span></div></div>
-        <div><span className="step-number">03</span><div><strong>Settle</strong><span>Confirm only what you intend</span></div></div>
+        <div><span className="step-number">02</span><div><strong>Deposit</strong><span>Post PreStocks collateral</span></div></div>
+        <div><span className="step-number">03</span><div><strong>Borrow</strong><span>Draw USDC against it</span></div></div>
       </section>
 
       <footer className="app-footer"><span>ANALA / PRESTOCKS LENDING</span><span>Research first. Settlement second.</span><a href="/">Back to overview -&gt;</a></footer>

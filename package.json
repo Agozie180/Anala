@@ -24,7 +24,8 @@
     "build:contract": "cd programs/anala-lending && cargo build --release",
     "build:contract:gnu": "rustup default stable-x86_64-pc-windows-gnu && cargo build --release",
     "deploy:contract": "solana program deploy target/deploy/anala_lending.so --url devnet",
-    "init:pool": "tsx scripts/initialize-pool.ts"
+    "init:pool": "tsx scripts/initialize-pool.ts",
+    "setup:devnet": "tsx scripts/setup-devnet.ts"
   },
   "dependencies": {
     "@solana/wallet-adapter-base": "^0.9.28",
