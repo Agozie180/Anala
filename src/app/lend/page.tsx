@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
-import { resolvePreStockInstrument } from '@/lib/prestocks/instruments';
-import { calculateLTV } from '@/lib/defi/ltv';
 import { WalletContextProvider } from '@/components/WalletProvider';
 import {
   networkLabel,
@@ -71,16 +69,17 @@ function LendingWorkspace() {
       setPosition(null);
       return;
     }
-    try {
-      const [m, p] = await Promise.all([
-        fetchMarket(connection, selectedToken),
-        publicKey ? fetchPosition(connection, selectedToken, publicKey) : Promise.resolve(null),
-      ]);
-      setMarket(m);
-      setPosition(p);
-    } catch (error) {
-      console.error('Failed to read chain state:', error);
-    }
+    // allSettled, not all: the public devnet RPC rate-limits (429s), and a failed
+    // position read must not wipe a good market read (or vice versa) — that would
+    // drop collateral/debt to 0 and disable borrow/repay/withdraw.
+    const [m, p] = await Promise.allSettled([
+      fetchMarket(connection, selectedToken),
+      publicKey ? fetchPosition(connection, selectedToken, publicKey) : Promise.resolve(null),
+    ]);
+    if (m.status === 'fulfilled') setMarket(m.value);
+    else console.error('Failed to read market:', m.reason);
+    if (p.status === 'fulfilled') setPosition(p.value);
+    else console.error('Failed to read position:', p.reason);
   }, [connection, selectedToken, publicKey, configured]);
 
   useEffect(() => {
@@ -90,11 +89,13 @@ function LendingWorkspace() {
   async function loadToken() {
     setLoading(true);
     try {
-      const resolved = await resolvePreStockInstrument(selectedToken);
-      if (resolved.resolved && resolved.instrument) {
-        setInstrument(resolved.instrument);
-        const ltv = await calculateLTV(resolved.instrument);
-        setLtvCalc(ltv);
+      // Server route: prestocks.com sends no CORS headers and the research engine
+      // is server-only, so this cannot run in the browser. See /api/lend-quote.
+      const res = await fetch(`/api/lend-quote?symbol=${encodeURIComponent(selectedToken)}`);
+      const data = await res.json();
+      if (res.ok && data.ok && data.instrument) {
+        setInstrument(data.instrument as PreStockInstrument);
+        setLtvCalc((data.ltv ?? null) as LTVCalculation | null);
       } else {
         setInstrument(null);
         setLtvCalc(null);
