@@ -50,7 +50,7 @@ export default function Page() {
       <section className="landing-hero" id="overview">
         <div className="hero-copy">
           <p className="eyebrow">PRESTOCKS / SOLANA / RISK INFRASTRUCTURE</p>
-          <h1>Private-market access, with a public standard.</h1>
+          <h1 className="premium-heading">Private-market access, with a public standard.</h1>
           <p className="hero-lede">
             Anala is a research and lending layer for tokenized pre-IPO assets. It turns live market data,
             company signals, and protocol rules into a clear next action.
@@ -71,7 +71,7 @@ export default function Page() {
 
         <div className="hero-visual" aria-label="Anala system overview">
           <div className="visual-header">
-            <span>ANALA / SYSTEM VIEW</span>
+            <span className="premium-label">ANALA / SYSTEM VIEW</span>
             <span className="visual-live">LIVE</span>
           </div>
           <div className="visual-main">

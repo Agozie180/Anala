@@ -21,6 +21,7 @@ import {
   type WalletCtx,
 } from '@/lib/defi/lending';
 import type { PreStockInstrument } from '@/lib/prestocks/instruments';
+import { brandStyle } from '@/lib/prestocks/brand';
 import type { LTVCalculation } from '@/lib/defi/ltv';
 
 function WalletSummary() {
@@ -173,8 +174,8 @@ function LendingWorkspace() {
 
       <section className="workspace-heading">
         <div>
-          <p className="eyebrow">ANALA / LENDING DESK</p>
-          <h1>Collateral, with context.</h1>
+          <p className="eyebrow premium-label">ANALA / LENDING DESK</p>
+          <h1 className="premium-heading">Collateral, with context.</h1>
           <p className="workspace-lede">
             Review a PreStocks asset, understand the risk boundary, and open a position on-chain from one focused workspace.
           </p>
@@ -251,7 +252,7 @@ function LendingWorkspace() {
                   onClick={() => setSelectedToken(token)}
                   className={`token-option ${selectedToken === token ? 'is-selected' : ''}`}
                 >
-                  <span className="token-symbol">{token.slice(0, 2)}</span>
+                  <span className="token-symbol" style={brandStyle(token)}>{token.slice(0, 2)}</span>
                   <span>
                     <strong>{token}</strong>
                     <small>PreStocks token</small>
@@ -262,7 +263,7 @@ function LendingWorkspace() {
             </div>
             {instrument && (
               <div className="instrument-preview">
-                {instrument.image ? <img src={instrument.image} alt="" /> : <span className="preview-fallback">{instrument.companyName.slice(0, 1)}</span>}
+                {instrument.image ? <img src={instrument.image} alt="" /> : <span className="preview-fallback" style={brandStyle(selectedToken)}>{instrument.companyName.slice(0, 1)}</span>}
                 <div>
                   <strong>{instrument.companyName}</strong>
                   <span>{instrument.description || 'Tokenized exposure to a private company.'}</span>
@@ -434,7 +435,7 @@ function LendingWorkspace() {
         <div><span className="step-number">03</span><div><strong>Borrow</strong><span>Draw USDC against it</span></div></div>
       </section>
 
-      <footer className="app-footer"><span>ANALA / PRESTOCKS LENDING</span><span>Research first. Settlement second.</span><a href="/">Back to overview -&gt;</a></footer>
+      <footer className="app-footer"><span className="premium-label">ANALA / PRESTOCKS LENDING</span><span>Research first. Settlement second.</span><a href="/">Back to overview -&gt;</a></footer>
     </main>
   );
 }

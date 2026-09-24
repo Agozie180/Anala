@@ -9,7 +9,7 @@ Built for [STOCKLANA Hackathon](https://stocklana.com) — **Best Use of PreStoc
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
 [![Solana](https://img.shields.io/badge/Solana-Devnet-purple)](https://solana.com/)
-[![Anchor](https://img.shields.io/badge/Anchor-0.32-orange)](https://www.anchor-lang.com/)
+[![Anchor](https://img.shields.io/badge/Anchor-0.30.1-orange)](https://www.anchor-lang.com/)
 
 ---
 
@@ -44,10 +44,23 @@ PreStocks tokens represent equity in high-growth pre-IPO companies (Anthropic, O
 
 ## 🚀 Live Demo
 
-- **Frontend:** [Coming after deployment]
-- **Program ID:** [Coming after deployment]
+- **Live App:** https://anala-mu.vercel.app
+- **Lending Desk:** https://anala-mu.vercel.app/lend
+- **Program ID:** `7h6qLdbjD12HspcDc1vk8uCsf2STHGWJSkHH9FvyYNLG` — [view on Solana Explorer (devnet)](https://explorer.solana.com/address/7h6qLdbjD12HspcDc1vk8uCsf2STHGWJSkHH9FvyYNLG?cluster=devnet)
 - **Network:** Solana Devnet
-- **Video Demo:** [Coming soon]
+- **Live actions:** deposit, borrow, repay, and withdraw all settle on-chain
+
+### Deployed Pools (devnet)
+
+Each pool is initialized and funded with 1,000,000 USDC liquidity.
+
+| Market | Lending Pool | Collateral Mint |
+|--------|--------------|-----------------|
+| ANTHROPIC | `GELC88mbzDjpqoCzd6NBHwm53LWz24PcV1oPH68MavCq` | `2FsPdRLkirxKjyKDv3GHMBhGgC18bdde1X7xPNMt4mb9` |
+| OPENAI | `7MoPM19DsgzVygkn4z8fbBMad3gdqi2fLfYAYS5VByAA` | `47c5rnErjgqb4ZUsmQV5ukYBknZ67kVwS7jsr1ALFoxt` |
+| SPACEX | `GoUW1hipEqmxyRodGzXeNsmziycRrkYxGToWPpJTd6BC` | `D14tjuMT4aZuvbNXntwm5ktxH8MJQcZY7SGo55GJunw1` |
+
+Borrow asset (USDC): `8LyzvBXiQnyTLEuuWCLQ2tNbDiM9bPQmdqdVSDzBCV5e`
 
 ---
 
@@ -94,7 +107,9 @@ $10,000 collateral:
   Conservative: $3,619.00
 ```
 
-### Lending Interface (After Deployment)
+### Lending Interface
+
+The lending desk is **live on Solana devnet** at **https://anala-mu.vercel.app/lend**. To run it locally:
 
 ```bash
 # Start development server
@@ -223,9 +238,9 @@ pub struct UserPosition {
 
 **Files:**
 - `src/app/lend/page.tsx` - Main lending interface
+- `src/app/api/lend-quote/route.ts` - Server route for instrument data + AI LTV (keeps PreStocks/AI calls off the browser)
+- `src/lib/defi/lending.ts` - On-chain client (raw Anchor instructions + PDA derivation)
 - `src/components/WalletProvider.tsx` - Wallet integration
-- `src/lib/defi/client.ts` - Smart contract client
-- `src/lib/defi/idl.ts` - Program IDL
 
 ---
 
@@ -234,7 +249,7 @@ pub struct UserPosition {
 ### Complete Lending Cycle
 
 1. **Connect Wallet**
-   - Open https://anala.vercel.app/lend
+   - Open https://anala-mu.vercel.app/lend
    - Click "Connect Wallet"
    - Approve Phantom/Solflare connection
 
@@ -345,9 +360,9 @@ npm run ltv -- ANTHROPIC
 ## 🛠️ Technology Stack
 
 **Smart Contract:**
-- Rust 1.75+
-- Anchor Framework 0.32
-- Solana 1.18+
+- Rust (Solana SBF toolchain)
+- Anchor 0.30.1 (anchor-lang / anchor-spl)
+- Solana 1.18
 
 **Backend:**
 - TypeScript 5.9
@@ -355,10 +370,10 @@ npm run ltv -- ANTHROPIC
 - Multi-agent AI system
 
 **Frontend:**
-- Next.js 15
+- Next.js 15 (App Router)
 - React 19
-- Solana Wallet Adapter
-- TailwindCSS
+- Solana Wallet Adapter (Phantom / Solflare)
+- Custom CSS design system (no UI framework)
 
 **Infrastructure:**
 - Solana Devnet
@@ -381,12 +396,12 @@ Anala/
 │   │   ├── lend/
 │   │   │   ├── page.tsx            # Lending UI
 │   │   │   └── layout.tsx          # Wallet provider
+│   │   ├── api/                    # Server routes (lend-quote, instruments, assets)
 │   │   └── page.tsx                # Landing page
 │   ├── lib/
 │   │   ├── defi/
-│   │   │   ├── ltv.ts              # LTV calculation
-│   │   │   ├── client.ts           # Smart contract client
-│   │   │   ├── idl.ts              # Program IDL
+│   │   │   ├── lending.ts          # On-chain client (raw instructions + PDAs)
+│   │   │   ├── ltv.ts              # AI risk scoring & LTV calculation
 │   │   │   └── program-structure.ts
 │   │   ├── research/               # Multi-agent system
 │   │   ├── council/                # 5 specialized agents
@@ -401,8 +416,10 @@ Anala/
 ├── tests/
 │   └── anala-lending.ts            # Smart contract tests
 ├── scripts/
-│   ├── deploy.sh                   # Deployment script
-│   └── initialize-pool.ts          # Pool initialization
+│   ├── setup-devnet.ts             # Mint tokens + initialize all pools (idempotent)
+│   ├── full-flow.ts                # End-to-end deposit/borrow/repay/withdraw check
+│   ├── devnet-audit.ts             # On-chain pool & state audit
+│   └── deploy.sh                   # Program deploy helper
 ├── Anchor.toml                     # Anchor config
 ├── package.json
 └── README.md
@@ -417,19 +434,18 @@ See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for complete instructions.
 **Quick Deploy:**
 
 ```bash
-# 1. Install prerequisites (Solana CLI + Anchor)
-sh -c "$(curl -sSfL https://release.solana.com/stable/install)"
-cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+# 1. Build the on-chain program (Solana SBF toolchain)
+cd programs/anala-lending && cargo build-sbf && cd ../..
 
-# 2. Build and deploy
-anchor build
-anchor deploy --provider.cluster devnet
+# 2. Deploy / upgrade on devnet
+solana program deploy target/deploy/anala_lending.so \
+  --program-id target/deploy/anala_lending-keypair.json --url devnet
 
-# 3. Initialize pools
-tsx scripts/initialize-pool.ts <ANTHROPIC_MINT> 5170 500
+# 3. Mint devnet tokens + initialize all pools (idempotent)
+SOLANA_WALLET=~/.config/solana/id.json npm run setup:devnet
 
-# 4. Deploy frontend
-vercel --prod
+# 4. Deploy the frontend
+vercel --prod --yes
 ```
 
 ---
@@ -506,9 +522,9 @@ MIT License - see [LICENSE](./LICENSE) file
 ## 🏆 Hackathon Submission
 
 **Event:** STOCKLANA Hackathon  
-**Bounty:** Best Use of PreStocks ($2,500)  
+**Bounty:** Best Use of PreStocks  
 **Team:** Agozie180  
-**Submission Date:** [TBD]  
+**Status:** Deployed & live on Solana devnet — https://anala-mu.vercel.app  
 
 **What We Built:**
 - ✅ AI-powered risk assessment engine
@@ -532,7 +548,7 @@ MIT License - see [LICENSE](./LICENSE) file
 
 - **GitHub:** [@Agozie180](https://github.com/Agozie180)
 - **Project:** [github.com/Agozie180/Anala](https://github.com/Agozie180/Anala)
-- **Demo:** [Coming after deployment]
+- **Demo:** https://anala-mu.vercel.app
 
 ---
 
@@ -549,6 +565,6 @@ MIT License - see [LICENSE](./LICENSE) file
 
 **Built with ❤️ for the PreStocks ecosystem**
 
-[Live Demo](#) • [Documentation](./DEPLOYMENT_GUIDE.md) • [Twitter](#) • [Discord](#)
+[Live Demo](https://anala-mu.vercel.app) • [Lending Desk](https://anala-mu.vercel.app/lend) • [Program on Explorer](https://explorer.solana.com/address/7h6qLdbjD12HspcDc1vk8uCsf2STHGWJSkHH9FvyYNLG?cluster=devnet)
 
 </div>
