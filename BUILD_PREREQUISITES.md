@@ -224,6 +224,8 @@ If time is critical, you can submit with:
 - ✅ Deployment scripts ready
 - 📝 Note: "Smart contract ready for deployment, awaiting build tools installation"
 
+> **Update:** This fallback was not needed — the program is compiled, deployed, and live on Solana devnet (`7h6qLdbjD12HspcDc1vk8uCsf2STHGWJSkHH9FvyYNLG`), with the app live at https://anala-mu.vercel.app/lend.
+
 Many hackathon judges accept well-documented code even if not deployed to testnet, especially when the blocker is environment setup rather than incomplete code.
 
 ---

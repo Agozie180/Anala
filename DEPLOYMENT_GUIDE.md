@@ -129,13 +129,13 @@ anchor test --skip-local-validator
 For each PreStocks token, initialize a pool:
 
 ```bash
-# ANTHROPIC (51.7% LTV, 5% APY)
+# ANTHROPIC (51.7% LTV, 5% APR)
 tsx scripts/initialize-pool.ts <ANTHROPIC_MINT_ADDRESS> 5170 500
 
-# OPENAI (47.5% LTV, 5% APY)
+# OPENAI (47.5% LTV, 5% APR)
 tsx scripts/initialize-pool.ts <OPENAI_MINT_ADDRESS> 4750 500
 
-# SPACEX (45.8% LTV, 5% APY)
+# SPACEX (45.8% LTV, 5% APR)
 tsx scripts/initialize-pool.ts <SPACEX_MINT_ADDRESS> 4580 500
 ```
 
@@ -258,7 +258,7 @@ Add to README.md:
 
 Include:
 - **Project Name:** Anala - AI-Powered Lending for PreStocks
-- **Live Demo:** https://anala.vercel.app/lend
+- **Live Demo:** https://anala-mu.vercel.app/lend
 - **GitHub:** https://github.com/Agozie180/Anala
 - **Video:** [Link to demo video]
 - **Program ID:** [Your deployed program ID]

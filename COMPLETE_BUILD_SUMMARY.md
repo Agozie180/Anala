@@ -1,9 +1,10 @@
 # Anala - Complete System Build Summary
 
-## ✅ EVERYTHING BUILT & DEPLOYED TO GITHUB
+## ✅ EVERYTHING BUILT — LIVE ON DEVNET & VERCEL
 
 **Repository:** https://github.com/Agozie180/Anala
-**Latest Commit:** 7b03788 - Complete lending UI and deployment infrastructure
+**Live demo:** https://anala-mu.vercel.app/lend (Solana devnet)  
+**Program ID:** `7h6qLdbjD12HspcDc1vk8uCsf2STHGWJSkHH9FvyYNLG`
 
 ---
 
@@ -68,8 +69,8 @@ SPACEX:    Risk 39.5/100 → LTV 45.8% → $10k = $4,582 max borrow
 - Collateral deposit interface
 - Borrow amount calculator with max/50%/75% buttons
 - Position dashboard (collateral, borrowed, health)
-- Interest rate display (5% APY)
-- Demo mode (wallet integration ready)
+- Interest rate display (5% APR)
+- Live wallet integration (Phantom/Solflare on devnet)
 
 **UI Highlights:**
 - Responsive design (mobile + desktop)
@@ -166,14 +167,16 @@ npm run ltv -- SPACEX
    # Open http://localhost:3100/lend
    ```
 
-### Ready for Deployment
-1. **Smart Contract** - Complete Anchor program ready to deploy
-2. **Frontend** - Production build ready for Vercel
+### Deployed ✅
+1. **Smart Contract** - Deployed to Solana devnet (`7h6qLdbjD12HspcDc1vk8uCsf2STHGWJSkHH9FvyYNLG`)
+2. **Frontend** - Live on Vercel (https://anala-mu.vercel.app/lend)
 3. **Scripts** - Automated deployment infrastructure
 
 ---
 
 ## 📋 Deployment Checklist
+
+> **Done:** Deployment is complete — the program is live on Solana devnet and the app is live at https://anala-mu.vercel.app/lend. The checklist below is kept as a reproducible guide.
 
 ### Prerequisites Needed (Windows Environment)
 - [ ] Install Visual Studio Build Tools (for Rust compilation)
@@ -204,13 +207,13 @@ npm run ltv -- SPACEX
 
 3. **Initialize Pools**
    ```bash
-   # ANTHROPIC (51.7% LTV, 5% APY)
+   # ANTHROPIC (51.7% LTV, 5% APR)
    tsx scripts/initialize-pool.ts <ANTHROPIC_MINT> 5170 500
    
-   # OPENAI (47.5% LTV, 5% APY)
+   # OPENAI (47.5% LTV, 5% APR)
    tsx scripts/initialize-pool.ts <OPENAI_MINT> 4750 500
    
-   # SPACEX (45.8% LTV, 5% APY)
+   # SPACEX (45.8% LTV, 5% APR)
    tsx scripts/initialize-pool.ts <SPACEX_MINT> 4580 500
    ```
 
@@ -239,7 +242,7 @@ npm run ltv -- SPACEX
 
 ---
 
-## 🏆 Why This Wins 1st Place
+## 🏆 Why Anala Stands Out
 
 ### Technical Excellence
 - ✅ **Production-Ready Code:** 400+ lines Rust, 350+ lines React, all type-safe
@@ -295,7 +298,7 @@ npm run ltv -- SPACEX
 ## 🎬 Demo Flow
 
 ### User Journey
-1. Open https://anala.vercel.app/lend (after deployment)
+1. Open https://anala-mu.vercel.app/lend (live on devnet)
 2. See three tokens: ANTHROPIC, OPENAI, SPACEX
 3. Select ANTHROPIC
 4. AI analyzes company:
@@ -312,7 +315,7 @@ npm run ltv -- SPACEX
    - Collateral: $10,140
    - Borrowed: $5,000
    - Health: Good (48.7% utilization)
-10. User repays $5,000 + $0.68 interest (1 day @ 5% APY)
+10. User repays $5,000 + $0.68 interest (1 day @ 5% APR)
 11. User withdraws 10 ANTHROPIC tokens
 
 ---
@@ -404,6 +407,8 @@ Anala/
 
 ## 🎯 Next Actions
 
+> **Done:** Steps 1–4 are complete — the program is deployed to devnet and the app is live at https://anala-mu.vercel.app/lend. Remaining: record a demo video and submit.
+
 1. **Install Prerequisites** (Windows: VS Build Tools + Rust + Solana + Anchor)
 2. **Deploy Smart Contract** (`anchor deploy`)
 3. **Initialize Pools** (ANTHROPIC, OPENAI, SPACEX with AI-calculated LTVs)
@@ -426,6 +431,6 @@ Anala/
 - Deployment automation
 - All code on GitHub
 
-**The only thing between this and a live demo is installing build tools and running the deployment script.**
+**This is live:** the smart contract is deployed to Solana devnet and the frontend is live at https://anala-mu.vercel.app/lend.
 
-This is the most complete, innovative, and production-ready submission for the PreStocks bounty.
+This is a complete, innovative, and production-ready submission for the PreStocks bounty.

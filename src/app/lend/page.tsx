@@ -11,6 +11,7 @@ import {
   explainError,
   fetchMarket,
   fetchPosition,
+  fetchUsdcBalance,
   deposit as depositTx,
   borrow as borrowTx,
   repay as repayTx,
@@ -38,6 +39,17 @@ function WalletSummary() {
 
 type TxState = { status: 'pending' | 'success' | 'error'; message: string; sig?: string } | null;
 
+/**
+ * Floor to `dp` decimals. Quick-fill buttons (MAX / 50% / 75%) must never round a
+ * value *up* past the on-chain cap: a borrow one cent over the LTV limit reverts
+ * with ExceedsLTV (6002), and toFixed rounds to nearest, so it can overshoot.
+ * Flooring guarantees the filled amount is <= the cap it was derived from.
+ */
+function floorTo(n: number, dp: number): number {
+  const f = 10 ** dp;
+  return Math.floor(Math.max(0, n) * f) / f;
+}
+
 function LendingWorkspace() {
   const { connection } = useConnection();
   const { connected, publicKey, sendTransaction } = useWallet();
@@ -53,8 +65,10 @@ function LendingWorkspace() {
 
   const [market, setMarket] = useState<MarketState | null>(null);
   const [position, setPosition] = useState<PositionState | null>(null);
+  const [usdcBalance, setUsdcBalance] = useState<number>(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [tx, setTx] = useState<TxState>(null);
+  const [faucetBusy, setFaucetBusy] = useState(false);
 
   const configured = isConfigured(selectedToken);
   const poolReady = configured && market?.poolExists === true;
@@ -68,19 +82,23 @@ function LendingWorkspace() {
     if (!configured) {
       setMarket(null);
       setPosition(null);
+      setUsdcBalance(0);
       return;
     }
     // allSettled, not all: the public devnet RPC rate-limits (429s), and a failed
     // position read must not wipe a good market read (or vice versa) — that would
     // drop collateral/debt to 0 and disable borrow/repay/withdraw.
-    const [m, p] = await Promise.allSettled([
+    const [m, p, b] = await Promise.allSettled([
       fetchMarket(connection, selectedToken),
       publicKey ? fetchPosition(connection, selectedToken, publicKey) : Promise.resolve(null),
+      publicKey ? fetchUsdcBalance(connection, publicKey) : Promise.resolve(0),
     ]);
     if (m.status === 'fulfilled') setMarket(m.value);
     else console.error('Failed to read market:', m.reason);
     if (p.status === 'fulfilled') setPosition(p.value);
     else console.error('Failed to read position:', p.reason);
+    if (b.status === 'fulfilled') setUsdcBalance(b.value ?? 0);
+    else console.error('Failed to read USDC balance:', b.reason);
   }, [connection, selectedToken, publicKey, configured]);
 
   useEffect(() => {
@@ -110,10 +128,24 @@ function LendingWorkspace() {
     }
   }
 
+  // Mirror the on-chain borrow gate as closely as the client can: capacity is
+  // (collateral tokens) x (price) x (LTV) minus debt already drawn. Prefer the
+  // values the program actually reads — on-chain price, on-chain LTV, on-chain
+  // collateral — and fall back to the research quote / deposit input before a
+  // position exists so the figure is never dead.
   function calculateMaxBorrow() {
-    if (!instrument || !ltvCalc || !collateralAmount) return 0;
-    const collateralValue = parseFloat(collateralAmount) * instrument.tokenPrice;
-    return collateralValue * ltvCalc.adjustedLtv;
+    const onChainCollateral = position?.collateral ?? 0;
+    const onChainDebt = position?.borrowed ?? 0;
+    const ltv =
+      market?.poolExists && market.ltvRatioBps > 0 ? market.ltvRatioBps / 10000 : ltvCalc?.adjustedLtv ?? 0;
+    const price =
+      market?.collateralPriceUsd && market.collateralPriceUsd > 0
+        ? market.collateralPriceUsd
+        : instrument?.tokenPrice ?? 0;
+    const tokens = onChainCollateral > 0 ? onChainCollateral : parseFloat(collateralAmount) || 0;
+    if (!price || !ltv || !tokens) return 0;
+    const available = tokens * price * ltv - onChainDebt;
+    return available > 0 ? available : 0;
   }
 
   async function runAction(kind: string, label: string, fn: (ctx: WalletCtx) => Promise<string>) {
@@ -140,6 +172,31 @@ function LendingWorkspace() {
     }
   }
 
+  async function requestFaucet() {
+    if (!publicKey) {
+      setTx({ status: 'error', message: 'Connect a Solana wallet to receive test tokens.' });
+      return;
+    }
+    setFaucetBusy(true);
+    setTx({ status: 'pending', message: `Requesting test ${selectedToken} tokens…` });
+    try {
+      const res = await fetch('/api/faucet', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ symbol: selectedToken, owner: publicKey.toBase58() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Faucet request failed.');
+      const usdcNote = data.usdcAmount ? ` + ${data.usdcAmount} test USDC (covers loan interest)` : '';
+      setTx({ status: 'success', message: `Received ${data.amount} test ${selectedToken}${usdcNote}. Deposit to continue.`, sig: data.signature });
+      await refreshChain();
+    } catch (error) {
+      setTx({ status: 'error', message: error instanceof Error ? error.message : 'Faucet request failed.' });
+    } finally {
+      setFaucetBusy(false);
+    }
+  }
+
   const maxBorrow = calculateMaxBorrow();
   const borrowAmountNum = parseFloat(borrowAmount) || 0;
   const repayAmountNum = parseFloat(repayAmount) || 0;
@@ -152,9 +209,17 @@ function LendingWorkspace() {
   const hasCollateral = collateralOnChain > 0;
   const hasDebt = borrowedOnChain > 0;
 
+  // Repaying must clear the debt to exactly zero, or withdraw_collateral stays
+  // blocked (it requires borrowed_amount == 0). Interest keeps accruing until the
+  // repay tx lands, so we aim a little over the debt shown; on-chain the program
+  // clamps to min(amount, debt) and pulls only the true debt, refunding nothing —
+  // over-sending is safe. Capped at the wallet's USDC so the token transfer can't
+  // fail for insufficient funds. The faucet hands out spare USDC for this.
+  const repayAllAmount = floorTo(Math.min(usdcBalance, borrowedOnChain * 1.02 + 0.02), 2);
+
   const canDeposit = connected && poolReady && !busy && parseFloat(collateralAmount) > 0;
   const canBorrow = connected && poolReady && !busy && isValidBorrow && hasCollateral;
-  const canRepay = connected && poolReady && !busy && repayAmountNum > 0 && repayAmountNum <= borrowedOnChain;
+  const canRepay = connected && poolReady && !busy && hasDebt && repayAmountNum > 0 && repayAmountNum <= usdcBalance + 1e-6;
   const canWithdraw =
     connected && poolReady && !busy && withdrawAmountNum > 0 && withdrawAmountNum <= collateralOnChain && !hasDebt;
 
@@ -211,6 +276,27 @@ function LendingWorkspace() {
           <small>{poolReady ? `on ${networkLabel()}` : `market on ${networkLabel()}`}</small>
         </div>
       </section>
+
+      <div
+        role="note"
+        style={{
+          margin: '0 0 18px',
+          padding: '12px 16px',
+          border: '1px solid var(--line-strong)',
+          background: 'var(--canvas)',
+          fontSize: 12,
+          lineHeight: 1.55,
+          color: 'var(--muted)',
+        }}
+      >
+        <strong style={{ color: 'var(--ink)' }}>Devnet demo — simulated tokens.</strong>{' '}
+        The ANTHROPIC, OPENAI and SPACEX collateral and the USDC used here are test SPL tokens minted on
+        Solana devnet with no real-world value; they do not represent actual equity in any company. Prices
+        track the live PreStocks mark but are pushed on-chain by the operator, since these pre-IPO assets
+        have no third-party oracle. Interest accrues as simple (non-compounding) 5% APR. This is
+        experimental software for evaluation only — not investment advice, positions can lose value, and
+        there is no liquidation engine yet.
+      </div>
 
       {tx && (
         <div className={`tx-banner is-${tx.status}`} role="status">
@@ -347,6 +433,15 @@ function LendingWorkspace() {
               <div className="input-shell"><input id="collateral-amount" type="number" value={collateralAmount} onChange={(e) => setCollateralAmount(e.target.value)} placeholder="0.0" step="0.1" min="0" /><span>{selectedToken}</span></div>
               {instrument && collateralAmount && <p className="field-hint">Estimated value ${(parseFloat(collateralAmount) * instrument.tokenPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>}
               <button
+                className="button button-light button-small"
+                type="button"
+                style={{ width: '100%', marginTop: 10 }}
+                disabled={!connected || faucetBusy}
+                onClick={() => void requestFaucet()}
+              >
+                {faucetBusy ? 'Requesting test tokens…' : connected ? `Get 100 test ${selectedToken} (devnet)` : 'Connect wallet for test tokens'}
+              </button>
+              <button
                 className={`button action-button ${canDeposit ? 'button-dark' : 'button-disabled'}`}
                 type="button"
                 disabled={!canDeposit}
@@ -364,9 +459,9 @@ function LendingWorkspace() {
               <label className="field-label" htmlFor="borrow-amount">Borrow amount</label>
               <div className="input-shell"><input id="borrow-amount" type="number" value={borrowAmount} onChange={(e) => setBorrowAmount(e.target.value)} placeholder="0.0" step="100" min="0" max={maxBorrow} /><span>USDC</span></div>
               <div className="quick-values">
-                <button type="button" onClick={() => setBorrowAmount((maxBorrow * 0.5).toFixed(2))}>50%</button>
-                <button type="button" onClick={() => setBorrowAmount((maxBorrow * 0.75).toFixed(2))}>75%</button>
-                <button type="button" onClick={() => setBorrowAmount(maxBorrow.toFixed(2))}>MAX</button>
+                <button type="button" onClick={() => setBorrowAmount(floorTo(maxBorrow * 0.5, 2).toFixed(2))}>50%</button>
+                <button type="button" onClick={() => setBorrowAmount(floorTo(maxBorrow * 0.75, 2).toFixed(2))}>75%</button>
+                <button type="button" onClick={() => setBorrowAmount(floorTo(maxBorrow, 2).toFixed(2))}>MAX</button>
               </div>
               <button
                 className={`button action-button ${canBorrow ? 'button-dark' : 'button-disabled'}`}
@@ -378,7 +473,7 @@ function LendingWorkspace() {
               </button>
               {connected && poolReady && !hasCollateral && <p className="field-hint">Deposit collateral to unlock borrowing.</p>}
               {borrowAmountNum > maxBorrow && <p className="error-text">Amount exceeds the current borrowing limit.</p>}
-              <div className="interest-row"><span>Interest rate</span><strong>{market ? (market.interestRateBps / 100).toFixed(2) : '5.00'}% APY</strong><span>Daily estimate</span><strong>${((borrowAmountNum * 0.05) / 365).toFixed(4)}</strong></div>
+              <div className="interest-row"><span>Interest rate</span><strong>{market ? (market.interestRateBps / 100).toFixed(2) : '5.00'}% APR</strong><span>Daily estimate</span><strong>${((borrowAmountNum * (market ? market.interestRateBps / 10000 : 0.05)) / 365).toFixed(4)}</strong></div>
             </div>
 
             <div className="action-divider" />
@@ -387,11 +482,16 @@ function LendingWorkspace() {
               <div className="action-block-heading"><span>Repay USDC</span><span>03</span></div>
               <div className="borrow-limit"><span>Outstanding debt</span><strong>${borrowedOnChain.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong><small>Repay to release your collateral</small></div>
               <label className="field-label" htmlFor="repay-amount">Repay amount</label>
-              <div className="input-shell"><input id="repay-amount" type="number" value={repayAmount} onChange={(e) => setRepayAmount(e.target.value)} placeholder="0.0" step="100" min="0" max={borrowedOnChain} /><span>USDC</span></div>
+              <div className="input-shell"><input id="repay-amount" type="number" value={repayAmount} onChange={(e) => setRepayAmount(e.target.value)} placeholder="0.0" step="100" min="0" max={usdcBalance} /><span>USDC</span></div>
               <div className="quick-values">
-                <button type="button" onClick={() => setRepayAmount((borrowedOnChain * 0.5).toFixed(2))}>50%</button>
-                <button type="button" onClick={() => setRepayAmount(borrowedOnChain.toFixed(2))}>MAX</button>
+                <button type="button" onClick={() => setRepayAmount(floorTo(borrowedOnChain * 0.5, 2).toFixed(2))}>50%</button>
+                <button type="button" onClick={() => setRepayAmount(repayAllAmount.toFixed(2))}>MAX</button>
               </div>
+              {connected && (
+                <p className="field-hint">
+                  Wallet USDC ${usdcBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. MAX clears the debt in full — including accrued interest — so you can withdraw your collateral.
+                </p>
+              )}
               <button
                 className={`button action-button ${canRepay ? 'button-dark' : 'button-disabled'}`}
                 type="button"
@@ -400,7 +500,9 @@ function LendingWorkspace() {
               >
                 {busy === 'repay' ? 'Repaying…' : connected ? 'Repay USDC' : 'Connect wallet to repay'} <span aria-hidden="true">-&gt;</span>
               </button>
-              {repayAmountNum > borrowedOnChain && <p className="error-text">Amount exceeds your outstanding debt.</p>}
+              {connected && hasDebt && repayAmountNum > usdcBalance + 1e-6 && (
+                <p className="error-text">Amount exceeds your wallet USDC (${usdcBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}). Use the faucet to top up test USDC.</p>
+              )}
             </div>
 
             <div className="action-divider" />
@@ -411,8 +513,8 @@ function LendingWorkspace() {
               <label className="field-label" htmlFor="withdraw-amount">Withdraw amount</label>
               <div className="input-shell"><input id="withdraw-amount" type="number" value={withdrawAmount} onChange={(e) => setWithdrawAmount(e.target.value)} placeholder="0.0" step="0.1" min="0" max={collateralOnChain} /><span>{selectedToken}</span></div>
               <div className="quick-values">
-                <button type="button" onClick={() => setWithdrawAmount((collateralOnChain * 0.5).toFixed(4))}>50%</button>
-                <button type="button" onClick={() => setWithdrawAmount(collateralOnChain.toFixed(4))}>MAX</button>
+                <button type="button" onClick={() => setWithdrawAmount(floorTo(collateralOnChain * 0.5, 4).toFixed(4))}>50%</button>
+                <button type="button" onClick={() => setWithdrawAmount(floorTo(collateralOnChain, 4).toFixed(4))}>MAX</button>
               </div>
               <button
                 className={`button action-button ${canWithdraw ? 'button-dark' : 'button-disabled'}`}

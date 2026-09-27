@@ -115,5 +115,5 @@ echo "  anchor run initialize-pool -- <COLLATERAL_MINT> <LTV_BPS> <INTEREST_BPS>
 echo ""
 echo "Example:"
 echo "  anchor run initialize-pool -- <ANTHROPIC_MINT> 5170 500"
-echo "  (51.7% LTV, 5% APY)"
+echo "  (51.7% LTV, 5% APR)"
 echo ""

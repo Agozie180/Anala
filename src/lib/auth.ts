@@ -12,8 +12,8 @@ function safeEqual(a: string, b: string): boolean {
 }
 
 export function requireAdmin(request: Request): Response | null {
-  const expected = process.env.AETHER_ADMIN_TOKEN;
-  if (!expected) return new Response(JSON.stringify({ ok: false, error: "AETHER_ADMIN_TOKEN is required for mutating operations" }), { status: 503, headers: { "content-type": "application/json" } });
+  const expected = process.env.ANALA_ADMIN_TOKEN;
+  if (!expected) return new Response(JSON.stringify({ ok: false, error: "ANALA_ADMIN_TOKEN is required for mutating operations" }), { status: 503, headers: { "content-type": "application/json" } });
   const provided = request.headers.get("authorization") ?? "";
   if (!safeEqual(provided, `Bearer ${expected}`)) return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
   return null;
@@ -26,7 +26,7 @@ export function requireAdmin(request: Request): Response | null {
  * nothing rather than defaulting open.
  */
 export function isAdmin(request: Request): boolean {
-  const expected = process.env.AETHER_ADMIN_TOKEN;
+  const expected = process.env.ANALA_ADMIN_TOKEN;
   if (!expected) return false;
   const provided = request.headers.get("authorization") ?? "";
   return safeEqual(provided, `Bearer ${expected}`);

@@ -2,7 +2,7 @@
 
 **AI-Powered Lending Protocol for PreStocks Tokenized Pre-IPO Stocks on Solana**
 
-> First intelligent lending protocol where AI determines loan-to-value ratios in real-time
+> An intelligent lending protocol where AI determines loan-to-value ratios in real-time — **live on Solana devnet**.
 
 Built for [STOCKLANA Hackathon](https://stocklana.com) — **Best Use of PreStocks** bounty submission.
 
@@ -30,7 +30,7 @@ PreStocks tokens represent equity in high-growth pre-IPO companies (Anthropic, O
 3. **Borrow USDC on-chain** → Smart contract enforces AI-determined limits
 4. **Liquidity unlocked** → Keep your tokens, get capital to deploy elsewhere
 
-### Why This Wins
+### How Anala Compares
 
 | Feature | Anala | Traditional Lending | Generic Research Tool |
 |---------|-------|---------------------|----------------------|
@@ -199,7 +199,7 @@ pub struct LendingPool {
     total_collateral: u64,
     total_borrowed: u64,
     ltv_ratio: u16,              // AI-determined (basis points)
-    interest_rate: u16,          // 5% APY
+    interest_rate: u16,          // 5% APR
     bump: u8,
 }
 
@@ -272,7 +272,7 @@ pub struct UserPosition {
 5. **Monitor Position**
    - View collateral value
    - Track borrowed amount
-   - See interest accruing (5% APY)
+   - See interest accruing (5% APR)
    - Check position health
 
 6. **Repay & Withdraw**
@@ -535,12 +535,12 @@ MIT License - see [LICENSE](./LICENSE) file
 - ✅ CLI tools for testing
 - ✅ Comprehensive documentation
 
-**Why This Deserves 1st Place:**
-1. **PreStocks-Native:** First DeFi primitive specifically for these tokens
+**Why Anala Stands Out:**
+1. **PreStocks-Native:** A DeFi primitive built specifically for these tokens
 2. **Real Innovation:** AI-determined LTV is genuinely novel
-3. **Technical Excellence:** Production-quality code, full test coverage
-4. **Complete Implementation:** End-to-end working system
-5. **Value Proposition:** Solves real problem (liquidity for holders)
+3. **Technical Execution:** Typed codebase with full test coverage
+4. **Complete Implementation:** End-to-end working system, live on devnet
+5. **Value Proposition:** Solves a real problem (liquidity for holders)
 
 ---
 

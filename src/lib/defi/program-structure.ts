@@ -133,7 +133,7 @@ export function updateLTV(
  *    - Easier LTV management
  *
  * 3. Fixed interest rate
- *    - 5% APY stored as basis points
+ *    - 5% APR stored as basis points
  *    - Interest calculated on borrow/repay
  *    - No utilization-based rates (MVP)
  *

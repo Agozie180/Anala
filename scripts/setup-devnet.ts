@@ -38,6 +38,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { tokenPriceUsd, priceToBaseUnits } from './prices';
 
 const RPC = process.env.SOLANA_RPC_URL || 'https://api.devnet.solana.com';
 const NETWORK = process.env.SOLANA_NETWORK || 'devnet';
@@ -66,6 +67,11 @@ function u16(n: number): Buffer {
   b.writeUInt16LE(n);
   return b;
 }
+function u64(n: bigint): Buffer {
+  const b = Buffer.alloc(8);
+  b.writeBigUInt64LE(n);
+  return b;
+}
 function base(amount: number, decimals: number): bigint {
   return BigInt(amount) * 10n ** BigInt(decimals);
 }
@@ -83,10 +89,16 @@ interface MintCache {
 }
 
 async function ensureMints(connection: Connection, wallet: Keypair): Promise<MintCache> {
-  if (fs.existsSync(MINTS_CACHE)) {
+  const fresh = process.env.FRESH_MINTS === '1' || process.env.FRESH_MINTS === 'true';
+  if (!fresh && fs.existsSync(MINTS_CACHE)) {
     const cached: MintCache = JSON.parse(fs.readFileSync(MINTS_CACHE, 'utf-8'));
     console.log('Reusing cached mints from', MINTS_CACHE);
     return cached;
+  }
+  if (fresh && fs.existsSync(MINTS_CACHE)) {
+    // The pool layout changed (added collateral_price + collateral_decimals).
+    // Old pools are keyed by the old mints, so a fresh mint set forces new pools.
+    console.log('FRESH_MINTS set -> ignoring cached mints and creating a new set');
   }
   console.log('Creating fresh mints on', NETWORK, '...');
   const usdc = await createMint(connection, wallet, wallet.publicKey, null, USDC_DECIMALS);
@@ -117,13 +129,14 @@ async function initPoolIfNeeded(
   collateralMint: PublicKey,
   ltvBps: number,
   interestBps: number,
+  priceBase: bigint,
 ): Promise<{ pool: PublicKey; borrowVault: PublicKey; created: boolean }> {
   const { pool, collateralVault, borrowVault } = derivePdas(collateralMint);
   if (await connection.getAccountInfo(pool)) {
     console.log('  pool already initialized:', pool.toBase58());
     return { pool, borrowVault, created: false };
   }
-  const data = Buffer.concat([disc('initialize_pool'), u16(ltvBps), u16(interestBps)]);
+  const data = Buffer.concat([disc('initialize_pool'), u16(ltvBps), u16(interestBps), u64(priceBase)]);
   const keys = [
     { pubkey: pool, isSigner: false, isWritable: true },
     { pubkey: collateralMint, isSigner: false, isWritable: false },
@@ -186,9 +199,12 @@ async function main() {
   console.log('\nInitializing pools + seeding liquidity...');
   const liquidity = base(LIQUIDITY_USDC, USDC_DECIMALS);
   for (const { name, ltvBps, interestBps } of POOLS) {
-    console.log(`\n[${name}] LTV ${ltvBps / 100}%  interest ${interestBps / 100}%`);
+    // Pull the live PreStocks mark and push it on-chain as the pool's initial price.
+    const priceUsd = await tokenPriceUsd(name);
+    const priceBase = priceToBaseUnits(priceUsd, USDC_DECIMALS);
+    console.log(`\n[${name}] LTV ${ltvBps / 100}%  interest ${interestBps / 100}%  price $${priceUsd.toFixed(2)}`);
     const collateralMint = new PublicKey(mints[name]);
-    const { borrowVault } = await initPoolIfNeeded(connection, wallet, usdcMint, collateralMint, ltvBps, interestBps);
+    const { borrowVault } = await initPoolIfNeeded(connection, wallet, usdcMint, collateralMint, ltvBps, interestBps, priceBase);
 
     // Top up borrow vault to target liquidity.
     let vaultBal = 0n;

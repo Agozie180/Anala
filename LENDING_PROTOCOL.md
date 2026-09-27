@@ -68,7 +68,7 @@ Example:
 
 3. **Borrow**
    - Borrow up to $6,200 USDC
-   - Interest rate: 5% APY (simple for MVP)
+   - Interest rate: 5% APR (simple, non-compounding)
    - No liquidations in MVP (manual monitoring)
 
 4. **Repay & Withdraw**
@@ -118,14 +118,14 @@ Example:
 - [ ] Documentation
 - [ ] Submission
 
-## Why This Wins
+## Why Anala Stands Out
 
 1. **Real DeFi Primitive** - Actual smart contracts, real capital efficiency
 2. **PreStocks-Native** - Unique to these tokens
 3. **AI-Powered** - First lending protocol with dynamic risk assessment
 4. **Solana-Native** - Real on-chain transactions
 5. **Unique Value** - Solves real problem (liquidity for pre-IPO holdings)
-6. **Differentia** - No other submission will have this
+6. **Differentiated** - A PreStocks-native, AI-driven combination that's genuinely uncommon
 
 ## Risks & Mitigations
 

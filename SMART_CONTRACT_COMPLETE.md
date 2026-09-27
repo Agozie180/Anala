@@ -110,7 +110,7 @@ await program.methods
   .rpc();
 ```
 
-## Why This Wins
+## Why Anala Stands Out
 
 ### Technical Excellence
 - ✅ Real Anchor smart contract (400+ lines of Rust)
@@ -127,7 +127,7 @@ await program.methods
 - ✅ Smart contract written
 - ✅ Tests written
 - ✅ Integration layer designed
-- ✅ Ready to deploy
+- ✅ Deployed to Solana devnet
 
 ## Current Status
 
@@ -137,8 +137,8 @@ await program.methods
 - ✅ Test suite (`tests/anala-lending.ts`)
 - ✅ Architecture documented
 
-**Next (Day 2):**
-- Build smart contract (`anchor build`)
-- Deploy to devnet
-- Test full cycle
-- Begin frontend integration
+**Shipped:**
+- ✅ Built smart contract (`cargo build-sbf` in WSL)
+- ✅ Deployed to devnet (`7h6qLdbjD12HspcDc1vk8uCsf2STHGWJSkHH9FvyYNLG`)
+- ✅ Tested full cycle (deposit → borrow → repay → withdraw)
+- ✅ Frontend live at https://anala-mu.vercel.app/lend

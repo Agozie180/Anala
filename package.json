@@ -5,7 +5,7 @@
   "engines": {
     "node": ">=22.5.0"
   },
-  "description": "Anala — AI-native trading intelligence for PreStocks tokenized pre-IPO stocks on Solana",
+  "description": "Anala — AI-driven lending for PreStocks tokenized pre-IPO stocks on Solana: research-based, dynamic LTV",
   "scripts": {
     "dev": "next dev --port 3100",
     "build": "next build",
@@ -25,7 +25,8 @@
     "build:contract:gnu": "rustup default stable-x86_64-pc-windows-gnu && cargo build --release",
     "deploy:contract": "solana program deploy target/deploy/anala_lending.so --url devnet",
     "init:pool": "tsx scripts/initialize-pool.ts",
-    "setup:devnet": "tsx scripts/setup-devnet.ts"
+    "setup:devnet": "tsx scripts/setup-devnet.ts",
+    "push:prices": "tsx scripts/push-prices.ts"
   },
   "dependencies": {
     "@solana/wallet-adapter-base": "^0.9.28",

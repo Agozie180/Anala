@@ -41,6 +41,9 @@ const POOL_TOTAL_COLLATERAL = 8 + 32 * 5; // 168
 const POOL_TOTAL_BORROWED = POOL_TOTAL_COLLATERAL + 8; // 176
 const POOL_LTV_RATIO = POOL_TOTAL_BORROWED + 8; // 184
 const POOL_INTEREST_RATE = POOL_LTV_RATIO + 2; // 186
+// Fields appended after `bump` by the current program (older pools won't have them).
+const POOL_COLLATERAL_PRICE = POOL_INTEREST_RATE + 2 + 1; // 189 (interest_rate u16 + bump u8)
+const POOL_COLLATERAL_DECIMALS = POOL_COLLATERAL_PRICE + 8; // 197
 const POS_COLLATERAL = 8 + 32 * 2; // 72
 const POS_BORROWED = POS_COLLATERAL + 8; // 80
 
@@ -165,6 +168,8 @@ export interface MarketState {
   totalBorrowed: number;
   collateralDecimals: number;
   usdcDecimals: number;
+  /** On-chain collateral price in USD (USDC per whole token); 0 if unavailable. */
+  collateralPriceUsd: number;
 }
 
 export async function fetchMarket(connection: Connection, symbol: TokenSymbol): Promise<MarketState | null> {
@@ -176,9 +181,14 @@ export async function fetchMarket(connection: Connection, symbol: TokenSymbol): 
     mintDecimals(connection, usdcMint()).catch(() => 6),
   ]);
   if (!info) {
-    return { poolExists: false, ltvRatioBps: 0, interestRateBps: 0, totalCollateral: 0, totalBorrowed: 0, collateralDecimals, usdcDecimals };
+    return { poolExists: false, ltvRatioBps: 0, interestRateBps: 0, totalCollateral: 0, totalBorrowed: 0, collateralDecimals, usdcDecimals, collateralPriceUsd: 0 };
   }
   const dv = new DataView(info.data.buffer, info.data.byteOffset, info.data.byteLength);
+  // Guard the appended price field so an older-layout pool account can't overflow the buffer.
+  const collateralPriceUsd =
+    info.data.byteLength >= POOL_COLLATERAL_DECIMALS + 1
+      ? fromBaseUnits(dv.getBigUint64(POOL_COLLATERAL_PRICE, true), usdcDecimals)
+      : 0;
   return {
     poolExists: true,
     ltvRatioBps: dv.getUint16(POOL_LTV_RATIO, true),
@@ -187,6 +197,7 @@ export async function fetchMarket(connection: Connection, symbol: TokenSymbol): 
     totalBorrowed: fromBaseUnits(dv.getBigUint64(POOL_TOTAL_BORROWED, true), usdcDecimals),
     collateralDecimals,
     usdcDecimals,
+    collateralPriceUsd,
   };
 }
 
@@ -212,6 +223,23 @@ export async function fetchPosition(connection: Connection, symbol: TokenSymbol,
     collateral: fromBaseUnits(dv.getBigUint64(POS_COLLATERAL, true), collateralDecimals),
     borrowed: fromBaseUnits(dv.getBigUint64(POS_BORROWED, true), usdcDecimals),
   };
+}
+
+/**
+ * The wallet's spendable USDC balance (UI units), or 0 if it has no USDC account
+ * yet. Repay draws from this, and clearing the last of a debt needs a little more
+ * USDC than was borrowed to cover accrued interest — so the UI reads it to size
+ * the "Max" repay and to gate the amount against what the wallet can actually pay.
+ */
+export async function fetchUsdcBalance(connection: Connection, owner: PublicKey): Promise<number> {
+  if (!LENDING_CONFIG.usdcMint) return 0;
+  try {
+    const ata = await getAssociatedTokenAddress(usdcMint(), owner);
+    const bal = await connection.getTokenAccountBalance(ata);
+    return bal.value.uiAmount ?? 0;
+  } catch {
+    return 0; // no ATA yet, or RPC hiccup — treat as zero balance
+  }
 }
 
 // --- transaction context supplied by the wallet adapter ---
@@ -248,7 +276,9 @@ async function ensureAtaIx(
 export async function deposit(ctx: WalletCtx, symbol: TokenSymbol, amountUi: number | string): Promise<string> {
   const { pool, collateralVault, collateralMint } = derivePdas(symbol);
   const position = positionPda(pool, ctx.publicKey);
-  const userTokenAccount = await getAssociatedTokenAddress(collateralMint, ctx.publicKey);
+  // Create the collateral ATA if the wallet somehow lacks it (defensive; a wallet
+  // that holds collateral already has one — e.g. after using the faucet).
+  const { ata: userTokenAccount, ix: ataIx } = await ensureAtaIx(ctx.connection, ctx.publicKey, ctx.publicKey, collateralMint);
   const amount = toBaseUnits(amountUi, await mintDecimals(ctx.connection, collateralMint));
 
   const ix = new TransactionInstruction({
@@ -264,7 +294,7 @@ export async function deposit(ctx: WalletCtx, symbol: TokenSymbol, amountUi: num
       meta(TOKEN_PROGRAM_ID, false, false),
     ],
   });
-  return sendIxs(ctx, [ix]);
+  return sendIxs(ctx, ataIx ? [ataIx, ix] : [ix]);
 }
 
 export async function borrow(ctx: WalletCtx, symbol: TokenSymbol, amountUi: number | string): Promise<string> {
@@ -343,8 +373,9 @@ export function explainError(err: unknown): string {
     '6004': 'Repay the outstanding debt before withdrawing collateral.',
     '6005': 'Insufficient collateral for that withdrawal.',
     '6006': 'LTV ratio must be between 30% and 75%.',
-    '6007': 'Arithmetic overflow.',
-    '6008': 'Arithmetic underflow.',
+    '6007': 'Price must be greater than zero.',
+    '6008': 'Arithmetic overflow.',
+    '6009': 'Arithmetic underflow.',
   };
   const m = msg.match(/custom program error: 0x([0-9a-fA-F]+)/);
   if (m) {

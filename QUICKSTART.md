@@ -148,7 +148,7 @@ This is **genuinely novel** - first lending protocol with intelligent, dynamic r
 
 ---
 
-## 🏆 Why This Wins
+## 🏆 Why Anala Stands Out
 
 ✅ **Complete Implementation** - Everything works  
 ✅ **Real Innovation** - AI-powered lending is novel  
@@ -162,7 +162,7 @@ This is **genuinely novel** - first lending protocol with intelligent, dynamic r
 
 - **GitHub:** https://github.com/Agozie180/Anala
 - **Demo:** http://localhost:3100/lend (run `npm run dev`)
-- **Live (after deployment):** [Will be added]
+- **Live:** https://anala-mu.vercel.app/lend (Solana devnet)
 
 ---
 

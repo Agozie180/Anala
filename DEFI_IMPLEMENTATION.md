@@ -31,11 +31,13 @@ This isn't just "adding DeFi" - it's creating the FIRST intelligent lending prot
 
 ## Implementation Timeline (5 Days)
 
+> **Status (complete):** All phases below shipped — the Anchor program is deployed to Solana devnet and the app is live at https://anala-mu.vercel.app/lend. The day-by-day checkboxes are kept as the original build plan.
+
 ### Day 1 (Today): Foundation
 ✅ LTV calculation engine built
 ✅ Risk scoring from Anala research
 ✅ CLI tool for testing (`npm run ltv`)
-⏳ Smart contract design documented
+✅ Smart contract design documented
 
 ### Day 2: Smart Contract Core
 - [ ] Set up Anchor project
@@ -179,7 +181,7 @@ src/app/lend/
 4. Deposit 10 ANTHROPIC tokens ($10,000 value)
 5. Borrow $6,200 USDC (62% LTV)
 6. View position: $10k collateral, $6.2k debt, healthy
-7. Repay $6,200 + $31 interest (5% APY for 1 day demo)
+7. Repay $6,200 + ~$0.85 interest (5% APR, 1 day)
 8. Withdraw 10 ANTHROPIC tokens
 
 **This demo proves:**
@@ -188,7 +190,7 @@ src/app/lend/
 - Real value proposition
 - PreStocks-native innovation
 
-## Why This Wins 1st Place
+## Why Anala Stands Out
 
 ### Differentiation Matrix
 
@@ -200,29 +202,29 @@ src/app/lend/
 | Solana Transactions | ✅ On-chain activity | ❌ No blockchain | ✅ But generic |
 | Innovation | ✅ First intelligent lending | ❌ Chatbot | ❌ Copy of existing |
 
-### Judge Evaluation (Predicted)
+### Strengths by Dimension
 
-**Technical Execution:** 9/10
+**Technical Execution**
 - Real smart contracts deployed
 - AI integration working
 - Clean architecture
 
-**PreStocks Value:** 10/10
+**PreStocks Value**
 - Creates new utility for tokens
 - Solves real problem (liquidity)
 - Can't do this outside PreStocks
 
-**Innovation:** 10/10
+**Innovation**
 - First AI-powered lending protocol
 - Novel combination of AI + DeFi
 - Solana-native
 
-**Completeness:** 8/10
+**Completeness**
 - Working end-to-end demo
 - Some features simplified (no auto-liquidation)
 - But core value loop complete
 
-**Overall:** 37/40 = 92.5% → **1st Place Tier**
+**Overall:** strong across technical execution, PreStocks value, innovation, and completeness.
 
 ## Risks & Mitigation
 
@@ -307,4 +309,4 @@ src/app/lend/
 
 ---
 
-**This is the path to 1st place. Let's execute.**
+**This is the path to a strong submission. Let's execute.**

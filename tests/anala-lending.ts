@@ -92,7 +92,7 @@ describe("anala-lending", () => {
     );
 
     const ltvBps = 5200; // 52% LTV (from Anala AI)
-    const interestRateBps = 500; // 5% APY
+    const interestRateBps = 500; // 5% APR
 
     await program.methods
       .initializePool(ltvBps, interestRateBps)

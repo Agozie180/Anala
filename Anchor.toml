@@ -5,13 +5,16 @@ seeds = true
 skip-lint = false
 
 [programs.localnet]
-anala_lending = "11111111111111111111111111111111"
+anala_lending = "7h6qLdbjD12HspcDc1vk8uCsf2STHGWJSkHH9FvyYNLG"
+
+[programs.devnet]
+anala_lending = "7h6qLdbjD12HspcDc1vk8uCsf2STHGWJSkHH9FvyYNLG"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "Localnet"
+cluster = "Devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

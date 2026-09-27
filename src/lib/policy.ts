@@ -5,10 +5,10 @@ import type { SessionId } from "./types";
  * Env vars override file defaults at process start.
  */
 export const policy = {
-  name: "AetherAI-S2",
-  maxLeverage: envNum("AETHER_MAX_LEVERAGE", 5),
+  name: "Anala",
+  maxLeverage: envNum("ANALA_MAX_LEVERAGE", 5),
   councilSize: 7,
-  councilQuorum: envNum("AETHER_COUNCIL_QUORUM", 4),
+  councilQuorum: envNum("ANALA_COUNCIL_QUORUM", 4),
   riskFraction: 0.005,
   minRewardRisk: 1.5,
   maxSpreadBps: 25,

@@ -37,7 +37,7 @@ SPACEX:    Risk 39.5/100 → LTV 45.8% → $10k = $4,582 max borrow
 - PDA security
 - Dynamic LTV enforcement
 
-**Status:** Code complete, ready for deployment
+**Status:** Deployed and live on Solana devnet
 
 ### 3. Frontend (Next.js) ✅
 - Production build: 106 kB First Load JS
@@ -49,7 +49,7 @@ SPACEX:    Risk 39.5/100 → LTV 45.8% → $10k = $4,582 max borrow
 
 ---
 
-## What Makes Anala Win 1st Place
+## What Makes Anala Stand Out
 
 ### Innovation Matrix
 
@@ -92,7 +92,7 @@ npm run ltv -- ANTHROPIC
 ```
 **Output:** Risk Score 54/100 → LTV 51.7% → Borrowing power examples
 
-### 3. Smart Contract (When Deployed)
+### 3. Smart Contract (Live on Devnet)
 ```
 1. Connect wallet
 2. Deposit 10 ANTHROPIC tokens ($10,140)
@@ -128,18 +128,18 @@ npm run ltv -- ANTHROPIC
 - Research API
 - All tests passing
 
-### Needs Deployment Tools 🔧
+### Deployment Tools ✅ (installed)
 - Anchor CLI (requires Visual Studio C++ Build Tools on Windows)
 - Solana CLI
 - Then: `anchor build` → `anchor deploy --provider.cluster devnet`
 
 ### Deployment Plan
 1. ✅ Smart contract written
-2. ⏳ Install build tools (Anchor + Solana CLI)
-3. ⏳ Build program: `anchor build`
-4. ⏳ Deploy to devnet: `anchor deploy`
-5. ⏳ Build frontend wallet integration
-6. ⏳ Deploy frontend to Vercel
+2. ✅ Install build tools (Solana CLI + SBF toolchain, via WSL)
+3. ✅ Build program: `cargo build-sbf`
+4. ✅ Deploy to devnet: `solana program deploy`
+5. ✅ Build frontend wallet integration
+6. ✅ Deploy frontend to Vercel (https://anala-mu.vercel.app)
 7. ⏳ Record demo video
 
 ---
@@ -165,34 +165,36 @@ npm run ltv -- ANTHROPIC
 
 ---
 
-## What Judges Will See
+## Strengths by Dimension
 
-### Technical Execution: 9/10
+### Technical Execution
 - ✅ Real smart contracts deployed
 - ✅ AI integration working
 - ✅ Clean architecture
 - ✅ All tests passing
 
-### PreStocks Value: 10/10
+### PreStocks Value
 - ✅ Creates new utility (liquidity)
 - ✅ PreStocks-native design
 - ✅ Can't do this elsewhere
 
-### Innovation: 10/10
+### Innovation
 - ✅ First AI-powered lending
 - ✅ Novel AI + DeFi combination
 - ✅ Dynamic risk assessment
 
-### Completeness: 8/10
+### Completeness
 - ✅ End-to-end implementation
 - ✅ Working demo
 - ⏳ Some polish needed
 
-**Total: 37/40 = 92.5%**
+**In short:** strong technical execution, real innovation, PreStocks-native value, and a complete end-to-end system deployed on devnet.
 
 ---
 
 ## Next Session Actions
+
+> **Done:** The steps below are complete — the program is deployed to devnet and the app is live at https://anala-mu.vercel.app/lend. Kept as a record of the original path.
 
 1. Install Solana CLI: `sh -c "$(curl -sSfL https://release.solana.com/stable/install)"`
 2. Install Anchor: Requires VS C++ Build Tools, then `cargo install --git https://github.com/coral-xyz/anchor avm`
@@ -205,7 +207,7 @@ npm run ltv -- ANTHROPIC
 
 ## Summary
 
-**Anala is production-ready with a winning strategy:**
+**Anala is production-ready:**
 - Multi-agent intelligence system ✅
 - AI-powered lending protocol ✅
 - Dynamic LTV based on real-time analysis ✅
@@ -214,4 +216,4 @@ npm run ltv -- ANTHROPIC
 
 **The innovation:** First lending protocol where AI determines loan-to-value ratios in real-time. This is PreStocks-native (can't do with other tokens) and Anala-native (leverages existing research intelligence).
 
-**Current status:** Code complete. Ready for smart contract deployment and frontend integration.
+**Current status:** Deployed and live on Solana devnet; frontend live at https://anala-mu.vercel.app/lend.
